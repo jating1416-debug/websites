@@ -1,4 +1,7 @@
 streamlit
-pandas
 Pillow
+pandas
 numpy
+matplotlib
+seaborn
+openpyxl

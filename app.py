@@ -2,6 +2,11 @@
 import os
 import streamlit as st
 from PIL import Image
+import pandas as pd          
+import numpy as np           
+import matplotlib.pyplot as plt  
+import seaborn as sns        
+
 
 # ==========================================
 # 1. PAGE CONFIG & STYLING
@@ -219,14 +224,15 @@ st.markdown("---")
 # ==========================================
 # 4. MAIN TABS
 # ==========================================
-tab_home, tab_projects, tab_gallery, tab_datasets, tab_resume, tab_contact = st.tabs([
+tab_home, tab_projects, tab_gallery, tab_datasets, tab_analyzer, tab_resume, tab_contact = st.tabs([
     "🏠 Home & About Me",
     "🎯 Projects Showcase", 
     "🖼️ All Images Gallery",
-    "📊 Kaggle Datasets",    # ← NEW
+    "📊 Kaggle Datasets",
+    "🧹 Cleaning & Visualize Your Data",
     "📄 Resume & Profile", 
     "📬 Contact Me"
-])  
+])
 
 # ------------------------------------------
 # TAB 1: HOME & ABOUT ME
@@ -572,6 +578,9 @@ with tab_projects:
 # ------------------------------------------
 # TAB 3: GALLERY
 # ------------------------------------------
+# ------------------------------------------
+# TAB 3: GALLERY (WITH FILTER & PERFECT ALIGNMENT)
+# ------------------------------------------
 with tab_gallery:
     st.markdown("## 🖼️ Complete Portfolio Gallery")
     st.write("All project visualizations and dashboards:")
@@ -620,25 +629,25 @@ with tab_gallery:
                     if img[0] == selected
                 ]
             
-            st.markdown(
-                f"**Showing: {len(filtered_images)} images**"
-            )
+            st.markdown(f"**Showing: {len(filtered_images)} images**")
             st.markdown("---")
             
-            # 3 Column Grid
-            gal_cols = st.columns(3)
-            for idx, (proj, img_f, img_p) in enumerate(
-                filtered_images
-            ):
-                with gal_cols[idx % 3]:
-                    try:
-                        st.image(
-                            img_p,
-                            caption=f"📁 {proj} | {img_f}",
-                            use_container_width=True
-                        )
-                    except Exception as e:
-                        st.error(f"❌ Cannot load: {img_f}")
+            # 🟢 PERFECT GRID FIX (Row by Row)
+            for i in range(0, len(filtered_images), 3):
+                cols = st.columns(3) # Har nayi row ke liye 3 naye column
+                for j in range(3):
+                    if i + j < len(filtered_images):
+                        proj, img_f, img_p = filtered_images[i + j]
+                        with cols[j]:
+                            try:
+                                # Captions aur Image ko render kar rahe hain
+                                st.image(
+                                    img_p,
+                                    caption=f"📁 {proj} | {img_f}",
+                                    use_container_width=True
+                                )
+                            except Exception as e:
+                                st.error(f"❌ Cannot load: {img_f}")
         else:
             st.warning("""
             ⚠️ No images found in any project folder!
@@ -650,27 +659,7 @@ with tab_gallery:
     else:
         st.error("Projects directory not found!")
 
-    # Gallery ke neeche ye add karo temporarily
-with st.expander("🔧 Debug - File Structure Check"):
-    if os.path.exists(PROJECTS_DIR):
-        for p_folder in os.listdir(PROJECTS_DIR):
-            p_path = os.path.join(PROJECTS_DIR, p_folder)
-            if os.path.isdir(p_path):
-                st.markdown(f"**📁 {p_folder}:**")
-                
-                for root, dirs, files in os.walk(p_path):
-                    level = root.replace(
-                        PROJECTS_DIR, ''
-                    ).count(os.sep)
-                    indent = "→ " * level
-                    st.text(f"{indent}{os.path.basename(root)}/")
-                    
-                    for file in files:
-                        subindent = "→ " * (level + 1)
-                        is_image = "🖼️" if file.endswith(
-                            IMAGE_EXTS
-                        ) else "📄"
-                        st.text(f"{subindent}{is_image} {file}")
+    
 # ------------------------------------------
 # TAB: KAGGLE DATASETS
 # ------------------------------------------
@@ -752,6 +741,490 @@ with tab_datasets:
     [![Kaggle Profile](https://img.shields.io/badge/Visit_Kaggle_Profile-20BEFF?style=for-the-badge&logo=kaggle&logoColor=white)](https://www.kaggle.com/jatinkhandelwal112)
     """)
 
+# ============================
+# NEW TAB: CLEANING & VISUALIZE DATA
+# ============================
+
+with tab_analyzer:
+    import pandas as pd
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    st.markdown("## 🧹 Cleaning & Visualize Your Data")
+    st.markdown("""
+    Upload CSV, Excel or JSON file for instant analysis.
+    🔒 **Your data is NOT stored anywhere.**
+    """)
+
+    MAX_ROWS = 150000
+    st.markdown("---")
+
+    # FILE UPLOAD
+    st.markdown("### 📁 Upload Your Files (Max 3)")
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        file1 = st.file_uploader(
+            "📄 File 1 (Required)",
+            type=['csv', 'xlsx', 'json'],
+            key="analyzer_file1"
+        )
+    with col2:
+        file2 = st.file_uploader(
+            "📄 File 2 (Optional)",
+            type=['csv', 'xlsx', 'json'],
+            key="analyzer_file2"
+        )
+    with col3:
+        file3 = st.file_uploader(
+            "📄 File 3 (Optional)",
+            type=['csv', 'xlsx', 'json'],
+            key="analyzer_file3"
+        )
+
+    # LOAD FILE FUNCTION
+    def load_analyzer_file(file):
+        try:
+            if file.name.endswith('.csv'):
+                df = pd.read_csv(file)
+            elif file.name.endswith('.xlsx'):
+                df = pd.read_excel(file)
+            elif file.name.endswith('.json'):
+                df = pd.read_json(file)
+            else:
+                return None
+            if df.shape[0] > MAX_ROWS:
+                st.error(
+                    f"⚠️ File too large! "
+                    f"Max {MAX_ROWS:,} rows. "
+                    f"Your file: {df.shape[0]:,} rows."
+                )
+                return None
+            return df
+        except Exception as e:
+            st.error(f"❌ Error: {e}")
+            return None
+
+    # LOAD FILES
+    analyzer_dataframes = {}
+
+    if file1:
+        df1 = load_analyzer_file(file1)
+        if df1 is not None:
+            analyzer_dataframes[file1.name] = df1
+            st.success(
+                f"✅ {file1.name}: "
+                f"{df1.shape[0]:,} rows × {df1.shape[1]} cols"
+            )
+
+    if file2:
+        df2 = load_analyzer_file(file2)
+        if df2 is not None:
+            analyzer_dataframes[file2.name] = df2
+            st.success(
+                f"✅ {file2.name}: "
+                f"{df2.shape[0]:,} rows × {df2.shape[1]} cols"
+            )
+
+    if file3:
+        df3 = load_analyzer_file(file3)
+        if df3 is not None:
+            analyzer_dataframes[file3.name] = df3
+            st.success(
+                f"✅ {file3.name}: "
+                f"{df3.shape[0]:,} rows × {df3.shape[1]} cols"
+            )
+
+    st.markdown("---")
+
+    # JOIN SECTION
+    if len(analyzer_dataframes) >= 2:
+        st.markdown("### 🔗 Join Your Files (Optional)")
+        file_names = list(analyzer_dataframes.keys())
+
+        col_a, col_b = st.columns(2)
+        with col_a:
+            sel_f1 = st.selectbox(
+                "First File:",
+                file_names,
+                key="join_f1"
+            )
+        with col_b:
+            rem = [f for f in file_names if f != sel_f1]
+            sel_f2 = st.selectbox(
+                "Second File:",
+                rem,
+                key="join_f2"
+            )
+
+        col_c, col_d = st.columns(2)
+        with col_c:
+            jcol1 = st.selectbox(
+                f"Join Column ({sel_f1}):",
+                analyzer_dataframes[sel_f1].columns.tolist(),
+                key="jcol1"
+            )
+        with col_d:
+            jcol2 = st.selectbox(
+                f"Join Column ({sel_f2}):",
+                analyzer_dataframes[sel_f2].columns.tolist(),
+                key="jcol2"
+            )
+
+        jtype = st.radio(
+            "Join Type:",
+            ["Inner Join","Left Join","Right Join","Outer Join"],
+            horizontal=True,
+            key="jtype"
+        )
+
+        jmap = {
+            "Inner Join": "inner",
+            "Left Join": "left",
+            "Right Join": "right",
+            "Outer Join": "outer"
+        }
+
+        if st.button("🔗 Perform Join", key="join_btn"):
+            try:
+                merged = pd.merge(
+                    analyzer_dataframes[sel_f1],
+                    analyzer_dataframes[sel_f2],
+                    left_on=jcol1,
+                    right_on=jcol2,
+                    how=jmap[jtype]
+                )
+                st.session_state['merged_df'] = merged
+                st.success(
+                    f"✅ Join done! "
+                    f"{merged.shape[0]:,} rows × "
+                    f"{merged.shape[1]} cols"
+                )
+            except Exception as e:
+                st.error(f"❌ Join failed: {e}")
+
+        st.markdown("---")
+
+    # MAIN ANALYSIS
+    if analyzer_dataframes:
+        st.markdown("### 📊 Select Dataset")
+
+        options = list(analyzer_dataframes.keys())
+        if 'merged_df' in st.session_state:
+            options.append("🔗 Merged Data")
+
+        selected = st.selectbox(
+            "Choose dataset:",
+            options,
+            key="dataset_select"
+        )
+
+        if selected == "🔗 Merged Data":
+            df = st.session_state['merged_df'].copy()
+        else:
+            df = analyzer_dataframes[selected].copy()
+
+        # SESSION STATE MEIN SAVE
+        st.session_state['current_df'] = df
+
+        st.markdown("---")
+
+        # ============================
+        # SECTION 1: BASIC OVERVIEW
+        # ============================
+        st.markdown("## 📊 Basic Data Overview")
+
+        m1, m2, m3, m4 = st.columns(4)
+        with m1:
+            st.metric("Total Rows", f"{df.shape[0]:,}")
+        with m2:
+            st.metric("Total Columns", df.shape[1])
+        with m3:
+            mem = df.memory_usage(deep=True).sum()/1024**2
+            st.metric("Memory", f"{mem:.2f} MB")
+        with m4:
+            st.metric("Data Types", df.dtypes.nunique())
+
+        t1, t2, t3, t4, t5 = st.tabs([
+            "Head","Sample","Info","Columns","Describe"
+        ])
+
+        with t1:
+            st.markdown("**df.head():**")
+            st.dataframe(df.head(), use_container_width=True)
+
+        with t2:
+            st.markdown("**df.sample():**")
+            st.dataframe(
+                df.sample(min(5, df.shape[0])),
+                use_container_width=True
+            )
+
+        with t3:
+            st.markdown("**df.info():**")
+            info_df = pd.DataFrame({
+                'Column': df.columns,
+                'Non-Null': df.count().values,
+                'Dtype': df.dtypes.astype(str).values
+            })
+            st.dataframe(info_df, use_container_width=True)
+
+        with t4:
+            st.markdown("**df.columns:**")
+            st.write(df.columns.tolist())
+
+        with t5:
+            st.markdown("**df.describe():**")
+            st.dataframe(
+                df.describe(),
+                use_container_width=True
+            )
+
+        st.markdown("---")
+
+        # ============================
+        # SECTION 2: DATA QUALITY
+        # ============================
+        st.markdown("## 🔍 Data Quality Check")
+
+        q1, q2 = st.columns(2)
+
+        with q1:
+            st.markdown("**Missing Values:**")
+            miss = pd.DataFrame({
+                'Column': df.columns,
+                'Missing': df.isnull().sum().values,
+                'Missing%': (
+                    df.isnull().sum()/len(df)*100
+                ).round(2).values
+            })
+            miss = miss[miss['Missing'] > 0]
+            if not miss.empty:
+                st.dataframe(miss, use_container_width=True)
+            else:
+                st.success("✅ No missing values!")
+
+        with q2:
+            st.markdown("**Duplicate Rows:**")
+            dup = df.duplicated().sum()
+            st.metric("Duplicates", f"{dup:,}")
+            if dup > 0:
+                st.warning(f"⚠️ {dup} duplicates found")
+            else:
+                st.success("✅ No duplicates!")
+
+        st.markdown("---")
+
+        # ============================
+        # SECTION 3: DATA TYPE FIX
+        # ============================
+        st.markdown("## 🔧 Fix Data Types")
+
+        d1, d2, d3 = st.columns(3)
+
+        with d1:
+            col_to_fix = st.selectbox(
+                "Select Column:",
+                df.columns.tolist(),
+                key="dtype_col"
+            )
+        with d2:
+            st.markdown(
+                f"**Current:** `{str(df[col_to_fix].dtype)}`"
+            )
+            new_type = st.selectbox(
+                "Convert To:",
+                ["Integer","Float","String","Date"],
+                key="new_dtype"
+            )
+        with d3:
+            st.markdown("**Action:**")
+            if st.button("🔄 Convert", key="convert_btn"):
+                try:
+                    if new_type == "Integer":
+                        df[col_to_fix] = pd.to_numeric(
+                            df[col_to_fix], errors='coerce'
+                        ).astype('Int64')
+                    elif new_type == "Float":
+                        df[col_to_fix] = pd.to_numeric(
+                            df[col_to_fix], errors='coerce'
+                        )
+                    elif new_type == "String":
+                        df[col_to_fix] = df[col_to_fix].astype(str)
+                    elif new_type == "Date":
+                        df[col_to_fix] = pd.to_datetime(
+                            df[col_to_fix], errors='coerce'
+                        )
+                    st.session_state['current_df'] = df
+                    st.success(
+                        f"✅ '{col_to_fix}' → {new_type}!"
+                    )
+                except Exception as e:
+                    st.error(f"❌ Failed: {e}")
+
+        st.markdown("---")
+
+        # ============================
+        # SECTION 4: SMART DUPLICATE
+        # ============================
+        st.markdown("## 🗑️ Smart Duplicate Detection")
+
+        st.info(
+            "💡 Select ID column to exclude from "
+            "duplicate check (like customer_id, emp_id)"
+        )
+
+        id_col = st.selectbox(
+            "Select ID/Primary Key Column:",
+            ["None"] + df.columns.tolist(),
+            key="id_col"
+        )
+
+        if id_col != "None":
+            check_cols = [c for c in df.columns if c != id_col]
+        else:
+            check_cols = df.columns.tolist()
+
+        st.markdown(
+            f"**Checking columns:** {', '.join(check_cols)}"
+        )
+
+        dup_mask = df.duplicated(subset=check_cols, keep=False)
+        true_dups = df.duplicated(
+            subset=check_cols, keep='first'
+        ).sum()
+
+        dc1, dc2 = st.columns(2)
+        with dc1:
+            st.metric("True Duplicates", true_dups)
+        with dc2:
+            if true_dups > 0:
+                st.warning(f"⚠️ {true_dups} duplicates!")
+            else:
+                st.success("✅ No duplicates!")
+
+        if true_dups > 0:
+            if st.checkbox("👀 Show Duplicates", key="show_dup"):
+                st.dataframe(
+                    df[dup_mask].sort_values(by=check_cols),
+                    use_container_width=True
+                )
+
+            if st.button(
+                "🗑️ Remove Duplicates",
+                key="rem_dup_btn"
+            ):
+                df = df.drop_duplicates(
+                    subset=check_cols, keep='first'
+                )
+                st.session_state['current_df'] = df
+                st.success(
+                    f"✅ Removed! New: {df.shape[0]:,} rows"
+                )
+
+        st.markdown("---")
+
+        # ============================
+        # SECTION 5: VISUALIZATIONS
+        # ============================
+        df = st.session_state.get('current_df', df)
+
+        st.markdown("## 📈 Visualizations")
+
+        num_cols = df.select_dtypes(
+            include=[np.number]
+        ).columns.tolist()
+        cat_cols = df.select_dtypes(
+            include=['object']
+        ).columns.tolist()
+
+        v1, v2, v3 = st.tabs([
+            "📊 Numeric",
+            "🎨 Categorical",
+            "🔥 Correlation"
+        ])
+
+        with v1:
+            if num_cols:
+                sel_num = st.selectbox(
+                    "Select Column:",
+                    num_cols,
+                    key="num_viz"
+                )
+                vc1, vc2 = st.columns(2)
+                with vc1:
+                    fig, ax = plt.subplots(figsize=(6, 4))
+                    df[sel_num].hist(
+                        bins=30, ax=ax, color='#667eea'
+                    )
+                    ax.set_title(f'Distribution: {sel_num}')
+                    st.pyplot(fig)
+                    plt.close(fig)
+                with vc2:
+                    fig, ax = plt.subplots(figsize=(6, 4))
+                    sns.boxplot(
+                        y=df[sel_num], ax=ax, color='#764ba2'
+                    )
+                    ax.set_title(f'Box Plot: {sel_num}')
+                    st.pyplot(fig)
+                    plt.close(fig)
+            else:
+                st.info("No numeric columns found")
+
+        with v2:
+            if cat_cols:
+                sel_cat = st.selectbox(
+                    "Select Column:",
+                    cat_cols,
+                    key="cat_viz"
+                )
+                vc = df[sel_cat].value_counts().head(10)
+                fig, ax = plt.subplots(figsize=(8, 5))
+                vc.plot(kind='bar', ax=ax, color='#667eea')
+                ax.set_title(f'Top 10: {sel_cat}')
+                plt.xticks(rotation=45, ha='right')
+                st.pyplot(fig)
+                plt.close(fig)
+            else:
+                st.info("No categorical columns found")
+
+        with v3:
+            if len(num_cols) >= 2:
+                fig, ax = plt.subplots(figsize=(10, 6))
+                sns.heatmap(
+                    df[num_cols].corr(),
+                    annot=True, fmt='.2f',
+                    cmap='coolwarm', ax=ax
+                )
+                ax.set_title('Correlation Heatmap')
+                st.pyplot(fig)
+                plt.close(fig)
+            else:
+                st.info("Need 2+ numeric columns")
+
+        st.markdown("---")
+
+        # ============================
+        # SECTION 6: DOWNLOAD
+        # ============================
+        st.markdown("## 💾 Download Cleaned Data")
+        st.info("🔒 Data NOT stored - Download now!")
+
+        final_df = st.session_state.get('current_df', df)
+        csv_out = final_df.to_csv(index=False).encode('utf-8')
+
+        st.download_button(
+            "📥 Download CSV",
+            csv_out,
+            file_name="cleaned_data.csv",
+            mime="text/csv",
+            use_container_width=True,
+            key="download_btn"
+        )
+
+    else:
+        st.info("👆 Upload at least one file to start!")
 # ------------------------------------------
 # TAB 4: RESUME
 # ------------------------------------------
