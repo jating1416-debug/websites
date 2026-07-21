@@ -219,10 +219,11 @@ st.markdown("---")
 # ==========================================
 # 4. MAIN TABS
 # ==========================================
-tab_home, tab_projects, tab_gallery, tab_resume, tab_contact = st.tabs([
+tab_home, tab_projects, tab_gallery, tab_datasets, tab_resume, tab_contact = st.tabs([
     "🏠 Home & About Me",
     "🎯 Projects Showcase", 
-    "🖼️ All Images Gallery", 
+    "🖼️ All Images Gallery",
+    "📊 Kaggle Datasets",    # ← NEW
     "📄 Resume & Profile", 
     "📬 Contact Me"
 ])
@@ -322,8 +323,8 @@ with tab_projects:
     st.markdown("## 🎯 Featured Projects Portfolio")
     st.markdown("""
     <p style='font-size: 1.1rem; color: #555;'>
-    Click on any project to view detailed analysis, code files, and visualizations. 
-    All projects demonstrate real-world data analysis scenarios.
+    Click on any project to view detailed analysis, 
+    code files, and visualizations.
     </p>
     """, unsafe_allow_html=True)
     
@@ -336,33 +337,71 @@ with tab_projects:
         ])
 
         if not project_folders:
-            st.warning("⚠️ No projects found in 'projects' folder.")
+            st.warning("⚠️ No projects found.")
         else:
             for idx, proj_name in enumerate(project_folders, 1):
                 folder_path = os.path.join(PROJECTS_DIR, proj_name)
-                all_files = os.listdir(folder_path)
+                
+                # ✅ SABHI FILES COLLECT KARO - SUBFOLDERS SE BHI
+                all_files = []
+                all_file_paths = {}
+                
+                for root, dirs, files in os.walk(folder_path):
+                    for file in files:
+                        full_path = os.path.join(root, file)
+                        all_files.append(file)
+                        all_file_paths[file] = full_path
 
-                with st.expander(f"📌 **Project {idx}: {proj_name}**", expanded=False):
+                with st.expander(
+                    f"📌 **Project {idx}: {proj_name}**", 
+                    expanded=False
+                ):
                     
-                    # Business Insights
+                    # ============================
+                    # 1. BUSINESS INSIGHTS
+                    # ============================
                     st.markdown("### 🎯 Project Overview & Business Impact")
-                    insights_files = ["business_insights.txt", "insights.txt", "details.txt", "readme.txt"]
+                    insights_files = [
+                        "business_insights.txt", 
+                        "insights.txt", 
+                        "details.txt", 
+                        "readme.txt",
+                        "README.txt",
+                        "README.md"
+                    ]
                     found_insights = False
 
                     for txt_file in insights_files:
+                        # Direct folder mein check karo
                         txt_path = os.path.join(folder_path, txt_file)
                         if os.path.exists(txt_path):
                             with open(txt_path, "r", encoding="utf-8") as f:
                                 st.success(f.read())
                             found_insights = True
                             break
+                        
+                        # Subfolders mein bhi check karo
+                        if txt_file in all_file_paths:
+                            with open(
+                                all_file_paths[txt_file], 
+                                "r", 
+                                encoding="utf-8"
+                            ) as f:
+                                st.success(f.read())
+                            found_insights = True
+                            break
                     
                     if not found_insights:
-                        st.info("💡 Add a `business_insights.txt` file to showcase key findings and business impact")
+                        st.info(
+                            "💡 Add a `business_insights.txt` "
+                            "file to showcase key findings"
+                        )
 
                     st.markdown("---")
                     
-                    # Tech Stack
+                    # ============================
+                    # 2. TECH STACK BADGES
+                    # ============================
                     st.markdown("### 🛠️ Technologies Used")
                     tech_used = []
                     for category, exts in CODE_EXTS.items():
@@ -370,25 +409,38 @@ with tab_projects:
                             tech_used.append(category)
                     
                     if tech_used:
-                        tech_badges = " ".join([f'<span class="badge">{tech}</span>' for tech in tech_used])
+                        tech_badges = " ".join([
+                            f'<span class="badge">{tech}</span>' 
+                            for tech in tech_used
+                        ])
                         st.markdown(tech_badges, unsafe_allow_html=True)
+                    else:
+                        st.caption("No tech files detected")
                     
                     st.markdown("---")
                     
-                    # Source Files
+                    # ============================
+                    # 3. ALL FILES - DOWNLOAD
+                    # ============================
                     st.markdown("### 📂 Project Files & Code")
+                    
+                    found_files = False
                     file_cols = st.columns(4)
                     col_idx = 0
-                    found_files = False
 
                     for category, exts in CODE_EXTS.items():
-                        matched_files = [f for f in all_files if f.endswith(exts)]
+                        # Saari files match karo (subfolders se bhi)
+                        matched_files = [
+                            f for f in all_files 
+                            if f.endswith(exts)
+                        ]
+                        
                         if matched_files:
                             found_files = True
                             with file_cols[col_idx % 4]:
                                 st.markdown(f"**{category}**")
                                 for fname in matched_files:
-                                    fpath = os.path.join(folder_path, fname)
+                                    fpath = all_file_paths[fname]
                                     with open(fpath, "rb") as fp:
                                         st.download_button(
                                             label=f"💾 {fname}",
@@ -400,57 +452,305 @@ with tab_projects:
                             col_idx += 1
                     
                     if not found_files:
-                        st.caption("No downloadable code files in this project")
+                        st.caption(
+                            "No code files found "
+                            "(.py, .sql, .pbix, .xlsx, .csv, .ipynb)"
+                        )
 
                     st.markdown("---")
                     
-                    # Screenshots
-                    st.markdown("### 📸 Dashboard Screenshots & Visualizations")
-                    images = sorted([f for f in all_files if f.endswith(IMAGE_EXTS)])
+                    # ============================
+                    # 4. CSV DATA PREVIEW 
+                    # ============================
+                    import pandas as pd
+                    
+                    csv_files = [
+                        f for f in all_files 
+                        if f.endswith(('.csv', '.CSV'))
+                    ]
+                    
+                    if csv_files:
+                        st.markdown("### 📊 Dataset Preview")
+                        
+                        # Multiple CSV tabs banao
+                        if len(csv_files) > 1:
+                            csv_tabs = st.tabs(csv_files)
+                            for csv_tab, csv_file in zip(
+                                csv_tabs, csv_files
+                            ):
+                                with csv_tab:
+                                    try:
+                                        df = pd.read_csv(
+                                            all_file_paths[csv_file]
+                                        )
+                                        st.markdown(
+                                            f"**📋 {csv_file}** - "
+                                            f"Shape: `{df.shape[0]} rows "
+                                            f"× {df.shape[1]} columns`"
+                                        )
+                                        st.dataframe(
+                                            df.head(10),
+                                            use_container_width=True
+                                        )
+                                        
+                                        # Stats bhi dikhao
+                                        with st.expander(
+                                            "📈 Data Statistics"
+                                        ):
+                                            st.dataframe(
+                                                df.describe(),
+                                                use_container_width=True
+                                            )
+                                    except Exception as e:
+                                        st.error(f"Error: {e}")
+                        else:
+                            # Single CSV
+                            try:
+                                df = pd.read_csv(
+                                    all_file_paths[csv_files[0]]
+                                )
+                                st.markdown(
+                                    f"**📋 {csv_files[0]}** - "
+                                    f"Shape: `{df.shape[0]} rows "
+                                    f"× {df.shape[1]} columns`"
+                                )
+                                st.dataframe(
+                                    df.head(10),
+                                    use_container_width=True
+                                )
+                                with st.expander("📈 Data Statistics"):
+                                    st.dataframe(
+                                        df.describe(),
+                                        use_container_width=True
+                                    )
+                            except Exception as e:
+                                st.error(f"Error loading CSV: {e}")
+                    
+                    st.markdown("---")
+                    
+                    # ============================
+                    # 5. SCREENSHOTS
+                    # ============================
+                    st.markdown(
+                        "### 📸 Dashboard Screenshots & Visualizations"
+                    )
+                    images = sorted([
+                        f for f in all_files 
+                        if f.endswith(IMAGE_EXTS)
+                    ])
 
                     if images:
                         img_cols = st.columns(2)
-                        for idx, img_name in enumerate(images):
-                            img_path = os.path.join(folder_path, img_name)
-                            with img_cols[idx % 2]:
-                                st.image(img_path, caption=img_name, use_container_width=True)
+                        for i, img_name in enumerate(images):
+                            img_path = all_file_paths[img_name]
+                            with img_cols[i % 2]:
+                                st.image(
+                                    img_path,
+                                    caption=img_name,
+                                    use_container_width=True
+                                )
                     else:
-                        st.caption("No visualization screenshots available")
+                        st.caption("No screenshots available")
                     
-                    # Videos
-                    videos = sorted([f for f in all_files if f.endswith(VIDEO_EXTS)])
+                    # ============================
+                    # 6. VIDEOS
+                    # ============================
+                    videos = sorted([
+                        f for f in all_files 
+                        if f.endswith(VIDEO_EXTS)
+                    ])
                     if videos:
                         st.markdown("---")
-                        st.markdown("### 🎥 Dashboard Demo Videos")
+                        st.markdown("### 🎥 Demo Videos")
                         for vid_name in videos:
-                            vid_path = os.path.join(folder_path, vid_name)
-                            st.video(vid_path)
+                            st.video(all_file_paths[vid_name])
     else:
-        st.error("⚠️ 'projects' directory not found. Create it in the same folder as app.py")
-
+        st.error(
+            "⚠️ 'projects' directory not found. "
+            "Create it next to app.py"
+        )
 # ------------------------------------------
 # TAB 3: GALLERY
 # ------------------------------------------
 with tab_gallery:
     st.markdown("## 🖼️ Complete Portfolio Gallery")
-    st.write("All project visualizations and dashboards in one place:")
+    st.write("All project visualizations and dashboards:")
 
     if os.path.exists(PROJECTS_DIR):
         all_gallery_images = []
+        
+        # ✅ os.walk() - Subfolders mein bhi dhundega
+        for p_folder in os.listdir(PROJECTS_DIR):
+            p_path = os.path.join(PROJECTS_DIR, p_folder)
+            
+            if os.path.isdir(p_path):
+                # Subfolders ke andar bhi dhundega
+                for root, dirs, files in os.walk(p_path):
+                    for file in files:
+                        if file.endswith(IMAGE_EXTS):
+                            full_path = os.path.join(root, file)
+                            all_gallery_images.append((
+                                p_folder,  # Project name
+                                file,       # Image name
+                                full_path   # Full path
+                            ))
+
+        if all_gallery_images:
+            # Project wise group karke dikhao
+            st.markdown(f"**Total Images Found: {len(all_gallery_images)}**")
+            st.markdown("---")
+            
+            # Project wise filter
+            project_names = list(set([
+                img[0] for img in all_gallery_images
+            ]))
+            
+            # Filter buttons
+            selected = st.selectbox(
+                "🔍 Filter by Project:",
+                ["All Projects"] + sorted(project_names)
+            )
+            
+            # Filter images
+            if selected == "All Projects":
+                filtered_images = all_gallery_images
+            else:
+                filtered_images = [
+                    img for img in all_gallery_images 
+                    if img[0] == selected
+                ]
+            
+            st.markdown(
+                f"**Showing: {len(filtered_images)} images**"
+            )
+            st.markdown("---")
+            
+            # 3 Column Grid
+            gal_cols = st.columns(3)
+            for idx, (proj, img_f, img_p) in enumerate(
+                filtered_images
+            ):
+                with gal_cols[idx % 3]:
+                    try:
+                        st.image(
+                            img_p,
+                            caption=f"📁 {proj} | {img_f}",
+                            use_container_width=True
+                        )
+                    except Exception as e:
+                        st.error(f"❌ Cannot load: {img_f}")
+        else:
+            st.warning("""
+            ⚠️ No images found in any project folder!
+            
+            **Fix:**
+            - Add .png or .jpg files to your project folders
+            - Check GitHub pe images upload hain ya nahi
+            """)
+    else:
+        st.error("Projects directory not found!")
+
+    # Gallery ke neeche ye add karo temporarily
+with st.expander("🔧 Debug - File Structure Check"):
+    if os.path.exists(PROJECTS_DIR):
         for p_folder in os.listdir(PROJECTS_DIR):
             p_path = os.path.join(PROJECTS_DIR, p_folder)
             if os.path.isdir(p_path):
-                for file in os.listdir(p_path):
-                    if file.endswith(IMAGE_EXTS):
-                        all_gallery_images.append((p_folder, file, os.path.join(p_path, file)))
+                st.markdown(f"**📁 {p_folder}:**")
+                
+                for root, dirs, files in os.walk(p_path):
+                    level = root.replace(
+                        PROJECTS_DIR, ''
+                    ).count(os.sep)
+                    indent = "→ " * level
+                    st.text(f"{indent}{os.path.basename(root)}/")
+                    
+                    for file in files:
+                        subindent = "→ " * (level + 1)
+                        is_image = "🖼️" if file.endswith(
+                            IMAGE_EXTS
+                        ) else "📄"
+                        st.text(f"{subindent}{is_image} {file}")
+# ------------------------------------------
+# TAB: KAGGLE DATASETS
+# ------------------------------------------
+with tab_datasets:
 
-        if all_gallery_images:
-            gal_cols = st.columns(3)
-            for idx, (proj, img_f, img_p) in enumerate(all_gallery_images):
-                with gal_cols[idx % 3]:
-                    st.image(img_p, caption=f"📁 {proj} | {img_f}", use_container_width=True)
-        else:
-            st.info("No project images found yet. Add screenshots to your project folders!")
+    st.markdown("## 📊 My Kaggle Datasets")
+    st.markdown("""
+    All datasets I have created and published 
+    on Kaggle. Click the link to access directly.
+    """)
+    
+    st.markdown("---")
+    
+    # ============================
+    # DATASETS LIST
+    # Sirf yahan apna data bharo!
+    # ============================
+    datasets = [
+       {
+        "category": "💰 Financial Fraud",
+        "name": "Indian Financial Fraud Dataset",
+        "description": "Comprehensive dataset of financial fraud cases in India. Contains transaction patterns, fraud indicators and customer data for fraud detection analysis.",
+        "link": "https://www.kaggle.com/datasets/jatinkhandelwal112/indian-financial-fraud-dataset",
+        "tags": ["Finance", "Fraud Detection", "Python", "ML"]
+    },
+    # Agle datasets yahan aayenge
+]
+        
+       
+        # Naye dataset add karte rehna bas yahan!
+        # {
+        #     "category": "Category Name",
+        #     "name": "Dataset Name",
+        #     "description": "Short description",
+        #     "link": "Kaggle link",
+        #     "tags": ["tag1", "tag2"]
+        # },
+    
+    
+    # ============================
+    # DISPLAY EACH DATASET
+    # ============================
+    for dataset in datasets:
+        with st.expander(
+            f"{dataset['category']} | {dataset['name']}"
+        ):
+            col1, col2 = st.columns([3, 1])
+            
+            with col1:
+                st.markdown(f"### {dataset['name']}")
+                st.markdown(f"**Category:** {dataset['category']}")
+                st.markdown(f"**Description:** {dataset['description']}")
+                
+                # Tags
+                tags = " ".join([
+                    f'<span class="badge">{tag}</span>' 
+                    for tag in dataset['tags']
+                ])
+                st.markdown(tags, unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown("### 🔗 Access")
+                st.markdown(f"""
+                [![Kaggle Dataset](https://img.shields.io/badge/View_on_Kaggle-20BEFF?style=for-the-badge&logo=kaggle&logoColor=white)]({dataset['link']})
+                """)
+    
+    st.markdown("---")
+    
+    # Kaggle Profile Link
+    st.markdown("""
+    <div style='text-align: center; padding: 20px;
+                background: #E3F2FD; border-radius: 10px;'>
+        <h3>🏆 My Kaggle Profile</h3>
+        <p>All datasets available here</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("""
+    [![Kaggle Profile](https://img.shields.io/badge/Visit_Kaggle_Profile-20BEFF?style=for-the-badge&logo=kaggle&logoColor=white)](https://www.kaggle.com/jatinkhandelwal112)
+    """)
 
 # ------------------------------------------
 # TAB 4: RESUME
