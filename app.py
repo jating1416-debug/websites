@@ -226,7 +226,7 @@ tab_home, tab_projects, tab_gallery, tab_datasets, tab_resume, tab_contact = st.
     "📊 Kaggle Datasets",    # ← NEW
     "📄 Resume & Profile", 
     "📬 Contact Me"
-])
+])  
 
 # ------------------------------------------
 # TAB 1: HOME & ABOUT ME
