@@ -19,16 +19,19 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-# 2. Google Search Console Injection (HTML Tag Method)
-st.markdown(
+##FOR GOOGLE VERIFICATION
+components.html(
     """
-    <meta name="google-site-verification" content="google913320ab3b7a3a08" />
+    <script>
+        var meta = parent.document.createElement('meta');
+        meta.name = "google-site-verification";
+        meta.content = "google913320ab3b7a3a08";
+        parent.document.head.appendChild(meta);
+    </script>
     """,
-    unsafe_allow_html=True
+    height=0,
+    width=0,
 )
-
-
 
 # Custom Styling for modern look
 st.markdown("""
