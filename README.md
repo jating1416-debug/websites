@@ -1,10 +1,11 @@
 # 🚀 Enterprise Data Analytics Framework & Ephemeral ETL Pipeline
 ### Production Systems Architecture engineered by Jatin Kumar (`jating1416-debug`)
 
-[![Production Deployment](https://shields.io)](https://streamlit.app)
-[![Codebase Nodes](https://shields.io)](https://github.com)
-[![Professional Identity Mapping](https://shields.io)](https://linkedin.com)
-
+[![Production Deployment][jatinanalytics.streamlit.app](https://jatinanalytics.streamlit.app/)
+[![Codebase Nodes][jating1416-debug](https://github.com/jating1416-debug)
+[![Professional Identity Mapping][Jatin Kumar - LinkedIn](https://www.linkedin.com/in/jatin-kumar-5a46a720a/)
+* **Kaggle:** [Jatin Khandelwal - Kaggle](https://www.kaggle.com/jatinkhandelwal112)
+* **Email:** Jating1416@gmail.com
 ---
 
 ## 📌 Engine Capabilities & Functional Pipeline Specifications
@@ -69,7 +70,7 @@ This application layers high-throughput in-memory data engineering pipelines und
 * **Identity Profile:** Jatin Kumar
 * **Technical Domains:** Business Intelligence Systems, Automated Data Ingestion Architectures, Ephemeral ETL Pipelines
 * **Core Tooling Arrays:** Python Engineering, SQL Relational Architecture, Pandas Matrix Mutations, Data Visualization
-* **Live Workspace URL:** [https://streamlit.app](https://streamlit.app)
-* **Version Control Hub:** [https://github.com](https://github.com)
-* **LinkedIn Network Link:** [https://linkedin.com](https://linkedin.com)
+* **Live Workspace URL:** [jatinanalytics.streamlit.app](https://jatinanalytics.streamlit.app/)
+* **Version Control Hub:** [@jating1416-debug](https://github.com/jating1416-debug)
+* **LinkedIn Network Link:** [Jatin Kumar](https://www.linkedin.com/in/jatin-kumar-5a46a720a/)
 * **Direct Corporate Mailbox:** [Jating1416@gmail.com](mailto:Jating1416@gmail.com)
