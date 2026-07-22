@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt  
 import seaborn as sns  
 import streamlit.components.v1 as components 
+import streamlit as st
 
 
 # ==========================================
@@ -19,10 +20,12 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Google Search Console Verification Tag
-components.html(
-    '<meta name="google-site-verification" content="google913320ab3b7a3a08" />', 
-    height=0
+# 2. Google Search Console Injection (HTML Tag Method)
+st.markdown(
+    """
+    <meta name="google-site-verification" content="google913320ab3b7a3a08" />
+    """,
+    unsafe_allow_html=True
 )
 
 
