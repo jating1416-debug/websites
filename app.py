@@ -5,7 +5,8 @@ from PIL import Image
 import pandas as pd          
 import numpy as np           
 import matplotlib.pyplot as plt  
-import seaborn as sns        
+import seaborn as sns  
+import streamlit.components.v1 as components 
 
 
 # ==========================================
@@ -17,6 +18,14 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Google Search Console Verification Tag
+components.html(
+    '<meta name="google-site-verification" content="google913320ab3b7a3a08" />', 
+    height=0
+)
+
+
 
 # Custom Styling for modern look
 st.markdown("""
