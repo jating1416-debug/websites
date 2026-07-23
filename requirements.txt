@@ -5,4 +5,8 @@ numpy
 matplotlib
 seaborn
 openpyxl
+<<<<<<< HEAD
 ploty
+=======
+plotly
+>>>>>>> 01b0fbc46cdcf150bbacf961d181828c670c19ae
