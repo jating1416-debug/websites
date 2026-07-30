@@ -6,3 +6,7 @@ matplotlib
 seaborn
 openpyxl
 plotly
+thefuzz
+statsmodels
+scikit-learn
+fpdf2
