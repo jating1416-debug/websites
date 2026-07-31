@@ -9,12 +9,18 @@ from thefuzz import fuzz
 from statsmodels.tsa.seasonal import seasonal_decompose
 import time
 import re
+import warnings
+warnings.filterwarnings('ignore')
 
-# ---- Optional heavy libraries (all FREE, no API, no cost) ----
+# ---- Optional libraries ----
 try:
-    from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier, IsolationForest
+    from sklearn.ensemble import (RandomForestRegressor, 
+                                   RandomForestClassifier, 
+                                   IsolationForest)
     from sklearn.model_selection import train_test_split
-    from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error, accuracy_score, confusion_matrix
+    from sklearn.metrics import (r2_score, mean_absolute_error, 
+                                  mean_squared_error, accuracy_score, 
+                                  confusion_matrix)
     SKLEARN_OK = True
 except ImportError:
     SKLEARN_OK = False
@@ -34,41 +40,35 @@ except ImportError:
     MPL_OK = False
 
 # ============================================================
-# 1. PAGE CONFIG
+# PAGE CONFIG
 # ============================================================
 st.set_page_config(
-    page_title="Smart Data Cleaner | AI-Powered Analytics",
+    page_title="Smart Data Cleaner",
     page_icon="🧹",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
 # ============================================================
-# 2. ENHANCED STYLING
+# STYLING
 # ============================================================
 st.markdown("""
 <style>
-    /* Hide Streamlit branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-
     .block-container {
         padding-top: 1rem;
         padding-bottom: 2rem;
         max-width: 100%;
     }
-
-    /* Modern card design */
     .feature-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         border-radius: 15px;
         padding: 20px;
         color: white;
         margin: 10px 0;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
-
     .issue-card-critical {
         background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
         border-radius: 10px;
@@ -77,7 +77,6 @@ st.markdown("""
         margin: 8px 0;
         border-left: 5px solid #c92a2a;
     }
-
     .issue-card-warning {
         background: linear-gradient(135deg, #ffd93d, #f9ca24);
         border-radius: 10px;
@@ -86,7 +85,6 @@ st.markdown("""
         margin: 8px 0;
         border-left: 5px solid #f39c12;
     }
-
     .issue-card-success {
         background: linear-gradient(135deg, #6bcf7f, #4ecb71);
         border-radius: 10px;
@@ -95,7 +93,6 @@ st.markdown("""
         margin: 8px 0;
         border-left: 5px solid #27ae60;
     }
-
     .step-active {
         background: linear-gradient(135deg, #667eea, #764ba2);
         border-radius: 10px;
@@ -104,7 +101,6 @@ st.markdown("""
         font-weight: 600;
         margin: 5px 0;
     }
-
     .step-complete {
         background: #d4edda;
         border-radius: 10px;
@@ -113,7 +109,6 @@ st.markdown("""
         margin: 5px 0;
         border-left: 4px solid #28a745;
     }
-
     .step-pending {
         background: #f8f9fa;
         border-radius: 10px;
@@ -122,7 +117,6 @@ st.markdown("""
         margin: 5px 0;
         opacity: 0.6;
     }
-
     .metric-card {
         background: white;
         border-radius: 12px;
@@ -130,75 +124,32 @@ st.markdown("""
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         border-left: 4px solid #667eea;
     }
-
     .quality-score {
         font-size: 3rem;
         font-weight: bold;
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        color: #667eea;
     }
-
-    .progress-container {
-        background: #f1f3f5;
-        border-radius: 20px;
-        height: 30px;
-        margin: 10px 0;
-        overflow: hidden;
-    }
-
-    .progress-bar {
-        background: linear-gradient(90deg, #667eea, #764ba2);
-        height: 100%;
-        border-radius: 20px;
-        transition: width 0.3s ease;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-weight: 600;
-    }
-
-    /* Pulse animation for active elements */
     @keyframes pulse {
         0%, 100% { opacity: 1; }
         50% { opacity: 0.7; }
     }
-
-    .pulse {
-        animation: pulse 2s infinite;
-    }
-
-    /* Tooltip style */
-    .tooltip {
-        position: relative;
-        display: inline-block;
-        cursor: help;
-    }
-
+    .pulse { animation: pulse 2s infinite; }
     .stButton>button {
         border-radius: 8px;
         font-weight: 600;
-        transition: all 0.3s ease;
-    }
-
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
 </style>
 """, unsafe_allow_html=True)
 
 # ============================================================
-# 3. CONSTANTS
+# CONSTANTS
 # ============================================================
 MAX_ROWS = 150000
-MAX_FILE_SIZE_MB = 50
 MAX_HISTORY = 15
 ML_SAMPLE_CAP = 20000
 
 # ============================================================
-# 4. SESSION STATE + WORKFLOW MANAGEMENT
+# SESSION STATE
 # ============================================================
 def init_state():
     defaults = {
@@ -207,8 +158,8 @@ def init_state():
         'history': [],
         'redo_stack': [],
         'pipeline_log': [],
-        'user_mode': 'beginner',  # beginner, intermediate, expert
-        'workflow_step': 0,  # Current step in workflow
+        'user_mode': 'beginner',
+        'workflow_step': 0,
         'completed_steps': [],
         'data_quality_score': 0,
         'initial_quality_score': 0,
@@ -219,8 +170,7 @@ def init_state():
         'ml_importance': None,
         'anomaly_summary': None,
         'pdf_report': None,
-        'show_tutorial': True,
-        'cleaning_recipe': [],
+        'merged_df': None,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -229,84 +179,63 @@ def init_state():
 init_state()
 
 # ============================================================
-# 5. HELPER FUNCTIONS
+# HELPER FUNCTIONS
 # ============================================================
-
 def calculate_quality_score(df):
-    """Calculate data quality score (0-100)"""
     if df is None or df.empty:
         return 0
-    
     score = 100
-    
-    # Missing values penalty
-    missing_pct = (df.isnull().sum().sum() / (df.shape[0] * df.shape[1])) * 100
+    missing_pct = (
+        df.isnull().sum().sum() / 
+        (df.shape[0] * df.shape[1])
+    ) * 100
     score -= min(missing_pct, 30)
-    
-    # Duplicate penalty
     dup_pct = (df.duplicated().sum() / df.shape[0]) * 100
     score -= min(dup_pct, 20)
-    
-    # Data type consistency check
-    for col in df.columns:
-        if df[col].dtype == 'object':
-            try:
-                pd.to_numeric(df[col].dropna().head(100))
-                score -= 2  # Looks like number but stored as text
-            except:
-                pass
-    
+    for col in df.select_dtypes(include=['object']).columns:
+        try:
+            pd.to_numeric(df[col].dropna().head(100))
+            score -= 2
+        except Exception:
+            pass
     return max(0, min(100, score))
 
 
 def detect_issues(df):
-    """Auto-detect data quality issues"""
     issues = []
-    
     if df is None or df.empty:
         return issues
-    
-    # Critical issues
-    missing_cols = df.columns[df.isnull().any()].tolist()
-    for col in missing_cols:
-        missing_pct = (df[col].isnull().sum() / len(df)) * 100
-        if missing_pct > 50:
+
+    # Missing values
+    for col in df.columns:
+        null_count = df[col].isnull().sum()
+        if null_count > 0:
+            pct = (null_count / len(df)) * 100
+            severity = 'critical' if pct > 50 else 'warning'
             issues.append({
-                'severity': 'critical',
+                'severity': severity,
                 'type': 'missing_values',
                 'column': col,
-                'detail': f'{missing_pct:.1f}% missing values',
-                'action': 'drop_or_fill',
+                'detail': f'{pct:.1f}% missing ({null_count:,} rows)',
                 'auto_fixable': True
             })
-        elif missing_pct > 5:
-            issues.append({
-                'severity': 'warning',
-                'type': 'missing_values',
-                'column': col,
-                'detail': f'{missing_pct:.1f}% missing values',
-                'action': 'fill',
-                'auto_fixable': True
-            })
-    
-    # Duplicate rows
+
+    # Duplicates
     dup_count = df.duplicated().sum()
     if dup_count > 0:
-        dup_pct = (dup_count / len(df)) * 100
+        pct = (dup_count / len(df)) * 100
         issues.append({
-            'severity': 'warning' if dup_pct < 10 else 'critical',
+            'severity': 'warning' if pct < 10 else 'critical',
             'type': 'duplicates',
             'column': 'All columns',
-            'detail': f'{dup_count:,} duplicate rows ({dup_pct:.1f}%)',
-            'action': 'remove',
+            'detail': f'{dup_count:,} duplicate rows ({pct:.1f}%)',
             'auto_fixable': True
         })
-    
+
     # Data type mismatches
     for col in df.select_dtypes(include=['object']).columns:
         sample = df[col].dropna().head(100)
         if len(sample) > 0:
-            # Check if looks like number
             try:
                 pd.to_numeric(sample)
                 issues.append({
@@ -314,14 +243,12 @@ def detect_issues(df):
                     'type': 'datatype',
                     'column': col,
                     'detail': 'Stored as text but looks like numbers',
-                    'action': 'convert_numeric',
                     'auto_fixable': True
                 })
-            except:
+            except Exception:
                 pass
-            
-            # Check if looks like date
-            if any(keyword in col.lower() for keyword in ['date', 'time', 'dt', 'timestamp']):
+            if any(k in col.lower() for k in 
+                   ['date', 'time', 'dt', 'timestamp']):
                 try:
                     pd.to_datetime(sample.head(10))
                     issues.append({
@@ -329,71 +256,75 @@ def detect_issues(df):
                         'type': 'datatype',
                         'column': col,
                         'detail': 'Stored as text but looks like dates',
-                        'action': 'convert_datetime',
                         'auto_fixable': True
                     })
-                except:
+                except Exception:
                     pass
-    
-    # Outlier detection (numeric columns)
+
+    # Outliers
     for col in df.select_dtypes(include=[np.number]).columns:
-        q1 = df[col].quantile(0.25)
-        q3 = df[col].quantile(0.75)
-        iqr = q3 - q1
-        outliers = df[(df[col] < q1 - 1.5*iqr) | (df[col] > q3 + 1.5*iqr)][col].count()
-        if outliers > 0:
-            outlier_pct = (outliers / len(df)) * 100
-            if outlier_pct > 5:
-                issues.append({
-                    'severity': 'info',
-                    'type': 'outliers',
-                    'column': col,
-                    'detail': f'{outliers:,} outliers detected ({outlier_pct:.1f}%)',
-                    'action': 'review',
-                    'auto_fixable': False
-                })
-    
+        try:
+            q1 = df[col].quantile(0.25)
+            q3 = df[col].quantile(0.75)
+            iqr = q3 - q1
+            n_out = df[
+                (df[col] < q1 - 1.5 * iqr) | 
+                (df[col] > q3 + 1.5 * iqr)
+            ][col].count()
+            if n_out > 0:
+                pct = (n_out / len(df)) * 100
+                if pct > 5:
+                    issues.append({
+                        'severity': 'info',
+                        'type': 'outliers',
+                        'column': col,
+                        'detail': f'{n_out:,} outliers ({pct:.1f}%)',
+                        'auto_fixable': False
+                    })
+        except Exception:
+            pass
+
     return issues
 
 
 def auto_fix_issues(df, issues):
-    """Auto-fix common issues"""
     fixed_df = df.copy()
-    actions_taken = []
-    
+    actions = []
     for issue in issues:
-        if not issue['auto_fixable']:
+        if not issue.get('auto_fixable'):
             continue
-        
         try:
+            col = issue['column']
             if issue['type'] == 'missing_values':
-                col = issue['column']
                 if pd.api.types.is_numeric_dtype(fixed_df[col]):
-                    fixed_df[col] = fixed_df[col].fillna(fixed_df[col].median())
-                    actions_taken.append(f"Filled '{col}' with median")
+                    med = fixed_df[col].median()
+                    fixed_df[col] = fixed_df[col].fillna(med)
+                    actions.append(f"Filled '{col}' with median ({med:.2f})")
                 else:
-                    fixed_df[col] = fixed_df[col].fillna(fixed_df[col].mode()[0] if not fixed_df[col].mode().empty else "")
-                    actions_taken.append(f"Filled '{col}' with mode")
-            
+                    mode = fixed_df[col].mode()
+                    fill_val = mode[0] if not mode.empty else ""
+                    fixed_df[col] = fixed_df[col].fillna(fill_val)
+                    actions.append(f"Filled '{col}' with mode ('{fill_val}')")
             elif issue['type'] == 'duplicates':
                 before = len(fixed_df)
                 fixed_df = fixed_df.drop_duplicates()
-                removed = before - len(fixed_df)
-                actions_taken.append(f"Removed {removed:,} duplicate rows")
-            
+                actions.append(
+                    f"Removed {before - len(fixed_df):,} duplicates"
+                )
             elif issue['type'] == 'datatype':
-                col = issue['column']
-                if issue['action'] == 'convert_numeric':
-                    fixed_df[col] = pd.to_numeric(fixed_df[col], errors='coerce')
-                    actions_taken.append(f"Converted '{col}' to numeric")
-                elif issue['action'] == 'convert_datetime':
-                    fixed_df[col] = pd.to_datetime(fixed_df[col], errors='coerce')
-                    actions_taken.append(f"Converted '{col}' to datetime")
-        
+                if 'numbers' in issue['detail']:
+                    fixed_df[col] = pd.to_numeric(
+                        fixed_df[col], errors='coerce'
+                    )
+                    actions.append(f"Converted '{col}' to numeric")
+                elif 'dates' in issue['detail']:
+                    fixed_df[col] = pd.to_datetime(
+                        fixed_df[col], errors='coerce'
+                    )
+                    actions.append(f"Converted '{col}' to datetime")
         except Exception as e:
-            st.warning(f"Could not auto-fix {issue['column']}: {e}")
-    
-    return fixed_df, actions_taken
+            st.warning(f"Could not fix '{issue['column']}': {e}")
+    return fixed_df, actions
 
 
 def log_entry(action, detail, shape):
@@ -407,23 +338,26 @@ def log_entry(action, detail, shape):
 
 
 def apply_change(new_df, action, detail=""):
-    """Central mutation function"""
-    st.session_state.history.append(
-        (st.session_state.current_df.copy(), list(st.session_state.pipeline_log))
-    )
+    st.session_state.history.append((
+        st.session_state.current_df.copy(),
+        list(st.session_state.pipeline_log)
+    ))
     if len(st.session_state.history) > MAX_HISTORY:
         st.session_state.history.pop(0)
     st.session_state.redo_stack = []
     st.session_state.current_df = new_df
-    st.session_state.pipeline_log.append(log_entry(action, detail, new_df.shape))
+    st.session_state.pipeline_log.append(
+        log_entry(action, detail, new_df.shape)
+    )
     st.session_state.data_quality_score = calculate_quality_score(new_df)
 
 
 def do_undo():
     if st.session_state.history:
-        st.session_state.redo_stack.append(
-            (st.session_state.current_df.copy(), list(st.session_state.pipeline_log))
-        )
+        st.session_state.redo_stack.append((
+            st.session_state.current_df.copy(),
+            list(st.session_state.pipeline_log)
+        ))
         df_prev, log_prev = st.session_state.history.pop()
         st.session_state.current_df = df_prev
         st.session_state.pipeline_log = log_prev
@@ -432,9 +366,10 @@ def do_undo():
 
 def do_redo():
     if st.session_state.redo_stack:
-        st.session_state.history.append(
-            (st.session_state.current_df.copy(), list(st.session_state.pipeline_log))
-        )
+        st.session_state.history.append((
+            st.session_state.current_df.copy(),
+            list(st.session_state.pipeline_log)
+        ))
         df_next, log_next = st.session_state.redo_stack.pop()
         st.session_state.current_df = df_next
         st.session_state.pipeline_log = log_next
@@ -442,17 +377,20 @@ def do_redo():
 
 
 # ============================================================
-# 6. CACHED FUNCTIONS
+# CACHED FUNCTIONS
 # ============================================================
-@st.cache_data(ttl=1800, max_entries=6, show_spinner="📂 Reading file...")
+@st.cache_data(ttl=1800, max_entries=6, show_spinner="Reading file...")
 def parse_file(file_bytes: bytes, file_name: str):
     bio = BytesIO(file_bytes)
-    if file_name.endswith('.csv'):
-        return pd.read_csv(bio)
-    elif file_name.endswith('.xlsx'):
-        return pd.read_excel(bio)
-    elif file_name.endswith('.json'):
-        return pd.read_json(bio)
+    try:
+        if file_name.endswith('.csv'):
+            return pd.read_csv(bio)
+        elif file_name.endswith('.xlsx'):
+            return pd.read_excel(bio)
+        elif file_name.endswith('.json'):
+            return pd.read_json(bio)
+    except Exception as e:
+        st.error(f"Parse error: {e}")
     return None
 
 
@@ -467,66 +405,38 @@ def cached_corr(df_num: pd.DataFrame):
 
 
 # ============================================================
-# 7. WORKFLOW STEPS DEFINITION
+# WORKFLOW STEPS
 # ============================================================
-WORKFLOW_STEPS = [
-    {
-        'id': 0,
-        'name': 'Upload Data',
-        'icon': '📁',
-        'description': 'Upload your CSV, Excel, or JSON files'
-    },
-    {
-        'id': 1,
-        'name': 'Check Quality',
-        'icon': '🔍',
-        'description': 'Auto-detect issues in your data'
-    },
-    {
-        'id': 2,
-        'name': 'Clean Data',
-        'icon': '🧹',
-        'description': 'Fix missing values, duplicates, and errors'
-    },
-    {
-        'id': 3,
-        'name': 'Analyze & Visualize',
-        'icon': '📊',
-        'description': 'Create charts and run ML models'
-    },
-    {
-        'id': 4,
-        'name': 'Download Results',
-        'icon': '💾',
-        'description': 'Export cleaned data and reports'
-    }
+STEPS = [
+    {'id': 0, 'name': 'Upload',    'icon': '📁'},
+    {'id': 1, 'name': 'Quality',   'icon': '🔍'},
+    {'id': 2, 'name': 'Clean',     'icon': '🧹'},
+    {'id': 3, 'name': 'Analyze',   'icon': '📊'},
+    {'id': 4, 'name': 'Download',  'icon': '💾'},
 ]
 
-
 # ============================================================
-# 8. HEADER & MODE SELECTOR
+# HEADER
 # ============================================================
 st.markdown("""
-<div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-            padding: 30px; border-radius: 15px; margin-bottom: 20px; color: white;'>
-    <h1 style='margin:0; font-size: 2.5rem;'>🧹 Smart Data Cleaner</h1>
-    <p style='margin:5px 0 0 0; font-size: 1.1rem; opacity: 0.9;'>
-        AI-Powered Data Cleaning & Analysis Platform
+<div style='background:linear-gradient(135deg,#667eea,#764ba2);
+            padding:25px;border-radius:15px;
+            margin-bottom:20px;color:white;'>
+    <h1 style='margin:0;font-size:2.2rem;'>🧹 Smart Data Cleaner</h1>
+    <p style='margin:5px 0 0 0;opacity:0.9;'>
+        AI-Powered Data Cleaning & Analysis
     </p>
 </div>
 """, unsafe_allow_html=True)
 
 # Mode selector
-col_mode1, col_mode2, col_mode3 = st.columns([1, 2, 1])
-with col_mode2:
+col_m1, col_m2, col_m3 = st.columns([1, 2, 1])
+with col_m2:
     mode = st.radio(
-        "👤 Choose Your Experience Level:",
-        ["🟢 Beginner (Guided)", "🟡 Intermediate (Smart Assist)", "🔴 Expert (Full Control)"],
-        index=0 if st.session_state.user_mode == 'beginner' else 1 if st.session_state.user_mode == 'intermediate' else 2,
-        horizontal=True,
-        key='mode_selector'
+        "Experience Level:",
+        ["Beginner (Guided)", "Intermediate", "Expert (Full Control)"],
+        horizontal=True, key='mode_sel'
     )
-    
     if "Beginner" in mode:
         st.session_state.user_mode = 'beginner'
     elif "Intermediate" in mode:
@@ -537,93 +447,81 @@ with col_mode2:
 st.markdown("---")
 
 # ============================================================
-# 9. WORKFLOW PROGRESS TRACKER (BEGINNER/INTERMEDIATE MODE)
+# PROGRESS TRACKER
 # ============================================================
 if st.session_state.user_mode in ['beginner', 'intermediate']:
-    st.markdown("### 🎯 Your Progress")
-    
-    # Calculate progress
-    total_steps = len(WORKFLOW_STEPS)
-    current_step = st.session_state.workflow_step
-    progress_pct = (len(st.session_state.completed_steps) / total_steps) * 100
-    
-    # Progress bar
-    st.markdown(f"""
-    <div class='progress-container'>
-        <div class='progress-bar' style='width: {progress_pct}%;'>
-            {progress_pct:.0f}% Complete
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Step cards
-    step_cols = st.columns(5)
-    for idx, step in enumerate(WORKFLOW_STEPS):
-        with step_cols[idx]:
-            if idx in st.session_state.completed_steps:
+    done = st.session_state.completed_steps
+    curr = st.session_state.workflow_step
+    pct  = (len(done) / len(STEPS)) * 100
+
+    st.markdown("### Your Progress")
+    st.progress(pct / 100)
+    st.caption(f"{pct:.0f}% complete")
+
+    cols = st.columns(len(STEPS))
+    for idx, step in enumerate(STEPS):
+        with cols[idx]:
+            if idx in done:
                 st.markdown(f"""
                 <div class='step-complete'>
-                    <div style='font-size: 1.5rem;'>✅</div>
-                    <div style='font-size: 0.85rem; margin-top: 5px;'>{step['name']}</div>
-                </div>
-                """, unsafe_allow_html=True)
-            elif idx == current_step:
+                ✅<br><small>{step['name']}</small>
+                </div>""", unsafe_allow_html=True)
+            elif idx == curr:
                 st.markdown(f"""
                 <div class='step-active pulse'>
-                    <div style='font-size: 1.5rem;'>{step['icon']}</div>
-                    <div style='font-size: 0.85rem; margin-top: 5px;'><b>{step['name']}</b></div>
-                </div>
-                """, unsafe_allow_html=True)
+                {step['icon']}<br><small><b>{step['name']}</b></small>
+                </div>""", unsafe_allow_html=True)
             else:
                 st.markdown(f"""
                 <div class='step-pending'>
-                    <div style='font-size: 1.5rem;'>{step['icon']}</div>
-                    <div style='font-size: 0.85rem; margin-top: 5px;'>{step['name']}</div>
-                </div>
-                """, unsafe_allow_html=True)
-    
+                {step['icon']}<br><small>{step['name']}</small>
+                </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
 # ============================================================
-# 10. FILE UPLOAD SECTION
+# FILE UPLOAD
 # ============================================================
-st.markdown("### 📁 Step 1: Upload Your Data")
-
+st.markdown("### 📁 Upload Your Data")
 if st.session_state.user_mode == 'beginner':
-    st.info("👋 **Welcome!** Start by uploading a CSV or Excel file. Your data stays 100% private - nothing is saved on our servers.")
+    st.info("👋 Start by uploading a CSV or Excel file. "
+            "Your data stays 100% private.")
 
-col1, col2, col3 = st.columns(3)
-with col1:
-    file1 = st.file_uploader("📄 File 1 (Required)", type=['csv', 'xlsx', 'json'], key="f1")
-with col2:
-    file2 = st.file_uploader("📄 File 2 (Optional)", type=['csv', 'xlsx', 'json'], key="f2")
-with col3:
-    file3 = st.file_uploader("📄 File 3 (Optional)", type=['csv', 'xlsx', 'json'], key="f3")
+uc1, uc2, uc3 = st.columns(3)
+with uc1:
+    file1 = st.file_uploader("File 1 (Required)",
+                              type=['csv','xlsx','json'], key="f1")
+with uc2:
+    file2 = st.file_uploader("File 2 (Optional)",
+                              type=['csv','xlsx','json'], key="f2")
+with uc3:
+    file3 = st.file_uploader("File 3 (Optional)",
+                              type=['csv','xlsx','json'], key="f3")
 
 
-def load_file(file):
+def load_file(f):
     try:
-        df = parse_file(file.getvalue(), file.name)
+        df = parse_file(f.getvalue(), f.name)
         if df is None:
             return None
         if df.shape[0] > MAX_ROWS:
-            st.error(f"⚠️ **{file.name}** has {df.shape[0]:,} rows. Max allowed: {MAX_ROWS:,}")
+            st.error(f"{f.name}: {df.shape[0]:,} rows exceeds limit of "
+                     f"{MAX_ROWS:,}")
             return None
         return df
     except Exception as e:
-        st.error(f"❌ Error loading {file.name}: {e}")
+        st.error(f"Error loading {f.name}: {e}")
         return None
 
 
 dataframes = {}
 for f in [file1, file2, file3]:
     if f:
-        df = load_file(f)
-        if df is not None:
-            dataframes[f.name] = df
-            st.success(f"✅ **{f.name}**: {df.shape[0]:,} rows × {df.shape[1]} columns")
+        loaded = load_file(f)
+        if loaded is not None:
+            dataframes[f.name] = loaded
+            st.success(f"✅ {f.name}: "
+                       f"{loaded.shape[0]:,} rows × {loaded.shape[1]} cols")
 
-# Mark step 0 as complete if files uploaded
 if dataframes and 0 not in st.session_state.completed_steps:
     st.session_state.completed_steps.append(0)
     st.session_state.workflow_step = 1
@@ -631,1078 +529,1022 @@ if dataframes and 0 not in st.session_state.completed_steps:
 st.markdown("---")
 
 # ============================================================
-# 11. JOIN/MERGE SECTION (ENHANCED)
+# JOIN / MERGE (FIXED - PREVIEW ADDED)
 # ============================================================
 if len(dataframes) >= 2:
-    st.markdown("### 🔗 Join Your Files (Optional)")
-    
+    st.markdown("### 🔗 Join Files (Optional)")
     if st.session_state.user_mode == 'beginner':
-        st.info("💡 **Join** combines two files based on a common column (like customer ID). Think of it as VLOOKUP in Excel.")
-    
-    file_names = list(dataframes.keys())
+        st.info("💡 Combine two files on a common column "
+                "(like VLOOKUP in Excel)")
 
+    fnames = list(dataframes.keys())
     jc1, jc2 = st.columns(2)
     with jc1:
-        sel_f1 = st.selectbox("First File:", file_names, key="jf1")
+        sel_f1 = st.selectbox("First File:", fnames, key="jf1")
     with jc2:
-        rem = [f for f in file_names if f != sel_f1]
-        sel_f2 = st.selectbox("Second File:", rem, key="jf2")
+        sel_f2 = st.selectbox("Second File:",
+                               [f for f in fnames if f != sel_f1], key="jf2")
 
     jc3, jc4 = st.columns(2)
     with jc3:
-        jcol1 = st.selectbox(f"Join Column ({sel_f1}):", dataframes[sel_f1].columns.tolist(), key="jc1")
+        jcol1 = st.selectbox(f"Join Column ({sel_f1}):",
+                              dataframes[sel_f1].columns.tolist(), key="jc1")
     with jc4:
-        jcol2 = st.selectbox(f"Join Column ({sel_f2}):", dataframes[sel_f2].columns.tolist(), key="jc2")
+        jcol2 = st.selectbox(f"Join Column ({sel_f2}):",
+                              dataframes[sel_f2].columns.tolist(), key="jc2")
 
-    jtype = st.radio("Join Type:", ["Inner Join", "Left Join", "Right Join", "Outer Join"],
-                     horizontal=True, key="jtype",
-                     help="Inner=Only matching rows | Left=All from first file | Right=All from second | Outer=All rows")
-    jmap = {"Inner Join": "inner", "Left Join": "left", "Right Join": "right", "Outer Join": "outer"}
+    jtype = st.radio(
+        "Join Type:",
+        ["Inner", "Left", "Right", "Outer"],
+        horizontal=True, key="jtype",
+        help="Inner=matching only | Left=all from file1 | "
+             "Right=all from file2 | Outer=everything"
+    )
+    jmap = {"Inner": "inner", "Left": "left",
+            "Right": "right", "Outer": "outer"}
 
     if st.button("🔗 Perform Join", key="join_btn", type="primary"):
         try:
-            with st.spinner("🔗 Joining files..."):
-                merged = pd.merge(dataframes[sel_f1], dataframes[sel_f2],
-                                  left_on=jcol1, right_on=jcol2, how=jmap[jtype])
+            with st.spinner("Joining files..."):
+                merged = pd.merge(
+                    dataframes[sel_f1], dataframes[sel_f2],
+                    left_on=jcol1, right_on=jcol2,
+                    how=jmap[jtype]
+                )
                 st.session_state['merged_df'] = merged
-                
-                # ✅ SUCCESS MESSAGE
-                st.success(f"✅ Successfully Joined! Result: {merged.shape[0]:,} rows × {merged.shape[1]} columns")
-                
-                # ✅ JOIN SUMMARY METRICS
-                col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-                with col_m1:
-                    st.metric("File 1 Rows", f"{dataframes[sel_f1].shape[0]:,}")
-                with col_m2:
-                    st.metric("File 2 Rows", f"{dataframes[sel_f2].shape[0]:,}")
-                with col_m3:
-                    st.metric("Merged Rows", f"{merged.shape[0]:,}")
-                with col_m4:
-                    matched_pct = (merged.shape[0] / max(dataframes[sel_f1].shape[0], dataframes[sel_f2].shape[0])) * 100
-                    st.metric("Match Rate", f"{matched_pct:.1f}%")
-                
-                # ✅ DETAILED JOIN INFO
-                st.info(f"""
-                **📊 Join Details:**
-                - **Join Type:** {jtype}
-                - **Join Column (File 1):** `{jcol1}`
-                - **Join Column (File 2):** `{jcol2}`
-                - **New Columns Added:** {merged.shape[1] - dataframes[sel_f1].shape[1]}
-                - **Rows from File 1:** {dataframes[sel_f1].shape[0]:,}
-                - **Rows from File 2:** {dataframes[sel_f2].shape[0]:,}
-                - **Final Merged Rows:** {merged.shape[0]:,}
-                """)
-                
-                # ✅ MERGED DATA PREVIEW
-                st.markdown("### 👁️ Merged Data Preview (First 50 Rows)")
-                st.dataframe(merged.head(50), use_container_width=True, height=400)
-                
-                # ✅ SHOW SAMPLE OF EACH SOURCE
-                with st.expander("🔍 Compare Sources (Side-by-Side)", expanded=False):
-                    prev_col1, prev_col2 = st.columns(2)
-                    with prev_col1:
-                        st.markdown(f"**{sel_f1}** (First 10 rows)")
-                        st.dataframe(dataframes[sel_f1].head(10), use_container_width=True)
-                    with prev_col2:
-                        st.markdown(f"**{sel_f2}** (First 10 rows)")
-                        st.dataframe(dataframes[sel_f2].head(10), use_container_width=True)
-                
-                # ✅ COLUMN MAPPING INFO
-                with st.expander("📋 Column Details After Merge", expanded=False):
-                    col_info = pd.DataFrame({
-                        'Column Name': merged.columns,
-                        'Data Type': merged.dtypes.astype(str),
-                        'Non-Null Count': merged.count().values,
-                        'Null Count': merged.isnull().sum().values,
-                        'Source': ['File 1' if c in dataframes[sel_f1].columns else 
-                                  'File 2' if c in dataframes[sel_f2].columns else 
-                                  'Both' for c in merged.columns]
-                    })
-                    st.dataframe(col_info, use_container_width=True)
-                
+
+            st.success(
+                f"✅ Joined! {merged.shape[0]:,} rows × "
+                f"{merged.shape[1]} columns"
+            )
+
+            # Metrics
+            m1, m2, m3, m4 = st.columns(4)
+            with m1:
+                st.metric("File 1 Rows",
+                          f"{dataframes[sel_f1].shape[0]:,}")
+            with m2:
+                st.metric("File 2 Rows",
+                          f"{dataframes[sel_f2].shape[0]:,}")
+            with m3:
+                st.metric("Merged Rows", f"{merged.shape[0]:,}")
+            with m4:
+                base = max(dataframes[sel_f1].shape[0],
+                           dataframes[sel_f2].shape[0])
+                st.metric("Match Rate",
+                          f"{merged.shape[0]/base*100:.1f}%")
+
+            # ✅ PREVIEW - ALWAYS SHOWN
+            st.markdown("#### 👁️ Merged Data Preview")
+            st.dataframe(merged.head(50))
+
+            with st.expander("🔍 Side-by-Side Source Preview"):
+                pc1, pc2 = st.columns(2)
+                with pc1:
+                    st.markdown(f"**{sel_f1}**")
+                    st.dataframe(dataframes[sel_f1].head(10))
+                with pc2:
+                    st.markdown(f"**{sel_f2}**")
+                    st.dataframe(dataframes[sel_f2].head(10))
+
+            with st.expander("📋 Column Details"):
+                col_info = pd.DataFrame({
+                    'Column': merged.columns,
+                    'Type': merged.dtypes.astype(str).values,
+                    'Non-Null': merged.count().values,
+                    'Nulls': merged.isnull().sum().values,
+                })
+                st.dataframe(col_info)
+
         except Exception as e:
-            st.error(f"❌ Join Failed: {e}")
-            st.warning("""
-            **Common Join Issues:**
-            - Column data types don't match (e.g., text vs number)
-            - Column values don't have exact matches
-            - Column names have extra spaces
-            
-            **Try:**
-            1. Check data types in 'Fix Data Types' section
-            2. Use 'Text Cleaning' to remove extra spaces
-            3. Preview both columns before joining
-            """)
+            st.error(f"❌ Join failed: {e}")
+            st.warning("**Tips:** Check column types match, "
+                       "no extra spaces in values")
 
     st.markdown("---")
 
 # ============================================================
-# 12. MAIN ANALYSIS - DATASET SELECTOR
+# DATASET SELECTOR
 # ============================================================
 if dataframes:
-    st.markdown("### 📊 Step 2: Select Dataset to Analyze")
-
+    st.markdown("### 📊 Select Dataset")
     options = list(dataframes.keys())
-    if 'merged_df' in st.session_state:
+    if st.session_state.get('merged_df') is not None:
         options.append("🔗 Merged Data")
 
-    selected = st.selectbox("Choose dataset:", options, key="ds_select")
+    selected = st.selectbox("Choose:", options, key="ds_select")
 
-    # Only reset when dataset CHANGES
-    if st.session_state.active_dataset != selected or st.session_state.current_df is None:
+    if (st.session_state.active_dataset != selected or
+            st.session_state.current_df is None):
         if selected == "🔗 Merged Data":
             base_df = st.session_state['merged_df'].copy()
         else:
             base_df = dataframes[selected].copy()
-        
+
         st.session_state.active_dataset = selected
         st.session_state.current_df = base_df
         st.session_state.history = []
         st.session_state.redo_stack = []
-        st.session_state.pipeline_log = [log_entry("📂 Load", f"Loaded '{selected}'", base_df.shape)]
-        
-        # Calculate initial quality score
-        st.session_state.initial_quality_score = calculate_quality_score(base_df)
-        st.session_state.data_quality_score = st.session_state.initial_quality_score
-        
-        # Detect issues
+        st.session_state.pipeline_log = [
+            log_entry("Load", f"Loaded '{selected}'", base_df.shape)
+        ]
+        st.session_state.initial_quality_score = \
+            calculate_quality_score(base_df)
+        st.session_state.data_quality_score = \
+            st.session_state.initial_quality_score
         st.session_state.issues_detected = detect_issues(base_df)
 
     df = st.session_state.current_df
-
     st.markdown("---")
 
     # ============================================================
-    # 13. AUTO-DETECTION DASHBOARD (NEW FEATURE!)
+    # QUALITY DASHBOARD
     # ============================================================
-    st.markdown("## 🔍 Step 3: Data Quality Dashboard")
-    
-    # Quality Score
-    score_col1, score_col2, score_col3, score_col4 = st.columns(4)
-    
-    with score_col1:
+    st.markdown("## 🔍 Data Quality Dashboard")
+
+    qc1, qc2, qc3, qc4 = st.columns(4)
+    with qc1:
         st.markdown(f"""
         <div class='metric-card'>
-            <div style='font-size: 0.9rem; color: #6c757d; margin-bottom: 5px;'>Data Quality Score</div>
-            <div class='quality-score'>{st.session_state.data_quality_score:.0f}/100</div>
+        <div style='font-size:.85rem;color:#6c757d;'>Quality Score</div>
+        <div class='quality-score'>
+            {st.session_state.data_quality_score:.0f}/100
         </div>
-        """, unsafe_allow_html=True)
-    
-    with score_col2:
-        improvement = st.session_state.data_quality_score - st.session_state.initial_quality_score
-        st.metric("Improvement", f"+{improvement:.0f}" if improvement > 0 else f"{improvement:.0f}",
-                  delta=f"{improvement:.0f} points" if improvement != 0 else "No changes yet")
-    
-    with score_col3:
-        critical_issues = len([i for i in st.session_state.issues_detected if i['severity'] == 'critical'])
-        st.metric("Critical Issues", critical_issues, delta=f"-{critical_issues}" if critical_issues > 0 else "All clear!")
-    
-    with score_col4:
+        </div>""", unsafe_allow_html=True)
+    with qc2:
+        imp = (st.session_state.data_quality_score -
+               st.session_state.initial_quality_score)
+        st.metric("Improvement",
+                  f"+{imp:.0f}" if imp > 0 else f"{imp:.0f}")
+    with qc3:
+        crit = len([i for i in st.session_state.issues_detected
+                    if i['severity'] == 'critical'])
+        st.metric("Critical Issues", crit)
+    with qc4:
         st.metric("Total Rows", f"{df.shape[0]:,}")
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    # Issues detected
-    if st.session_state.issues_detected:
-        st.markdown("### 🚨 Auto-Detected Issues")
-        
-        # Separate by severity
-        critical = [i for i in st.session_state.issues_detected if i['severity'] == 'critical']
-        warnings = [i for i in st.session_state.issues_detected if i['severity'] == 'warning']
-        info = [i for i in st.session_state.issues_detected if i['severity'] == 'info']
-        
-        # Critical issues
+
+    # Issues
+    issues = st.session_state.issues_detected
+    if issues:
+        st.markdown("### 🚨 Detected Issues")
+        critical = [i for i in issues if i['severity'] == 'critical']
+        warnings = [i for i in issues if i['severity'] == 'warning']
+
         if critical:
-            st.markdown("#### 🔴 Critical Issues (Fix Immediately)")
-            for issue in critical:
+            st.markdown("#### 🔴 Critical")
+            for i in critical:
                 st.markdown(f"""
                 <div class='issue-card-critical'>
-                    <div style='font-size: 1.1rem; font-weight: 600; margin-bottom: 5px;'>
-                        {issue['column']}
-                    </div>
-                    <div>{issue['detail']}</div>
-                </div>
-                """, unsafe_allow_html=True)
-        
-        # Warnings
+                <b>{i['column']}</b> — {i['detail']}
+                </div>""", unsafe_allow_html=True)
+
         if warnings:
-            st.markdown("#### 🟡 Warnings (Recommended to Fix)")
-            for issue in warnings:
+            st.markdown("#### 🟡 Warnings")
+            for i in warnings:
                 st.markdown(f"""
                 <div class='issue-card-warning'>
-                    <div style='font-size: 1.1rem; font-weight: 600; margin-bottom: 5px;'>
-                        {issue['column']}
-                    </div>
-                    <div>{issue['detail']}</div>
-                </div>
-                """, unsafe_allow_html=True)
-        
-        # One-click fix button
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        auto_fixable = [i for i in st.session_state.issues_detected if i['auto_fixable']]
-        
-        if auto_fixable:
-            fix_col1, fix_col2, fix_col3 = st.columns([2, 1, 1])
-            
-            with fix_col1:
-                st.info(f"💡 {len(auto_fixable)} issues can be auto-fixed with smart defaults")
-            
-            with fix_col2:
-                if st.button("🧹 Auto-Fix All Issues", type="primary", key="auto_fix_btn"):
-                    with st.spinner("🔧 Applying smart fixes..."):
-                        fixed_df, actions = auto_fix_issues(df, auto_fixable)
-                        apply_change(fixed_df, "🤖 Auto-Fix", f"Fixed {len(actions)} issues")
-                        st.session_state.issues_detected = detect_issues(fixed_df)
-                        
+                <b>{i['column']}</b> — {i['detail']}
+                </div>""", unsafe_allow_html=True)
+
+        fixable = [i for i in issues if i.get('auto_fixable')]
+        if fixable:
+            st.markdown("<br>", unsafe_allow_html=True)
+            fc1, fc2 = st.columns([3, 1])
+            with fc1:
+                st.info(f"💡 {len(fixable)} issues can be auto-fixed")
+            with fc2:
+                if st.button("🧹 Auto-Fix All",
+                             type="primary", key="auto_fix"):
+                    with st.spinner("Fixing..."):
+                        fixed_df, actions = auto_fix_issues(df, fixable)
+                        apply_change(fixed_df, "Auto-Fix",
+                                     f"Fixed {len(actions)} issues")
+                        st.session_state.issues_detected = \
+                            detect_issues(fixed_df)
                         if 2 not in st.session_state.completed_steps:
                             st.session_state.completed_steps.append(2)
-                            st.session_state.workflow_step = 3
-                        
-                        st.success(f"✅ Auto-fixed {len(actions)} issues!")
-                        for action in actions:
-                            st.success(f"  • {action}")
-                        st.rerun()
-            
-            with fix_col3:
-                with st.expander("What will be fixed?"):
-                    for issue in auto_fixable:
-                        st.write(f"• {issue['column']}: {issue['detail']}")
-    
+                    st.success(f"✅ Fixed {len(actions)} issues!")
+                    for a in actions:
+                        st.write(f"• {a}")
+                    st.rerun()
     else:
-        st.markdown(f"""
+        st.markdown("""
         <div class='issue-card-success'>
-            <div style='font-size: 1.5rem; margin-bottom: 10px;'>✅</div>
-            <div style='font-size: 1.1rem; font-weight: 600;'>Excellent Data Quality!</div>
-            <div style='margin-top: 5px;'>No critical issues detected. Your data looks clean.</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if 1 not in st.session_state.completed_steps:
-            st.session_state.completed_steps.append(1)
-        if 2 not in st.session_state.completed_steps:
-            st.session_state.completed_steps.append(2)
-            st.session_state.workflow_step = 3
+        ✅ <b>Great!</b> No major issues detected.
+        </div>""", unsafe_allow_html=True)
+        for s in [1, 2]:
+            if s not in st.session_state.completed_steps:
+                st.session_state.completed_steps.append(s)
+        st.session_state.workflow_step = 3
 
     st.markdown("---")
 
     # ============================================================
-    # 14. UNDO/REDO + PIPELINE LOG
+    # UNDO / REDO
     # ============================================================
-    st.markdown("### 🧾 Cleaning History & Controls")
-
+    st.markdown("### 🧾 History & Controls")
     ur1, ur2, ur3, ur4 = st.columns([1, 1, 1, 3])
     with ur1:
-        if st.button(f"↩️ Undo ({len(st.session_state.history)})",
-                     key="undo_btn", disabled=len(st.session_state.history) == 0,
-                     use_container_width=True):
-            do_undo()
-            st.rerun()
+        if st.button(
+            f"↩️ Undo ({len(st.session_state.history)})",
+            disabled=not st.session_state.history,
+            key="undo"
+        ):
+            do_undo(); st.rerun()
     with ur2:
-        if st.button(f"↪️ Redo ({len(st.session_state.redo_stack)})",
-                     key="redo_btn", disabled=len(st.session_state.redo_stack) == 0,
-                     use_container_width=True):
-            do_redo()
-            st.rerun()
+        if st.button(
+            f"↪️ Redo ({len(st.session_state.redo_stack)})",
+            disabled=not st.session_state.redo_stack,
+            key="redo"
+        ):
+            do_redo(); st.rerun()
     with ur3:
-        if st.button("🔄 Reset All", key="reset_btn", use_container_width=True):
+        if st.button("🔄 Reset", key="reset"):
             st.session_state.active_dataset = None
             st.rerun()
     with ur4:
-        st.caption(f"💾 {len(st.session_state.pipeline_log)} steps logged | Quality Score: {st.session_state.data_quality_score:.0f}/100")
+        st.caption(
+            f"{len(st.session_state.pipeline_log)} steps | "
+            f"Score: {st.session_state.data_quality_score:.0f}/100"
+        )
 
-    with st.expander(f"📜 View All Cleaning Steps ({len(st.session_state.pipeline_log)} steps)", expanded=False):
+    with st.expander(
+        f"📜 Pipeline Log ({len(st.session_state.pipeline_log)} steps)"
+    ):
         if st.session_state.pipeline_log:
             log_df = pd.DataFrame(st.session_state.pipeline_log)
-            st.dataframe(log_df, use_container_width=True, hide_index=True)
-            
-            log_csv = log_df.to_csv(index=False).encode('utf-8')
-            st.download_button("📥 Download Log (CSV)", log_csv,
-                               file_name="cleaning_log.csv", mime="text/csv")
-        else:
-            st.info("No steps logged yet.")
+            st.dataframe(log_df, hide_index=True)
+            st.download_button(
+                "📥 Download Log",
+                log_df.to_csv(index=False).encode(),
+                file_name="pipeline_log.csv",
+                mime="text/csv"
+            )
 
     st.markdown("---")
 
     # ============================================================
-    # 15. BASIC OVERVIEW (COLLAPSIBLE)
+    # BASIC OVERVIEW
     # ============================================================
-    with st.expander("📊 Basic Data Overview", expanded=st.session_state.user_mode == 'expert'):
-        m1, m2, m3, m4 = st.columns(4)
-        with m1:
-            st.metric("Total Rows", f"{df.shape[0]:,}")
-        with m2:
-            st.metric("Total Columns", df.shape[1])
-        with m3:
-            mem = df.memory_usage(deep=True).sum() / 1024 ** 2
-            st.metric("Memory Usage", f"{mem:.2f} MB")
-        with m4:
-            st.metric("Data Types", df.dtypes.nunique())
+    with st.expander("📊 Data Overview",
+                     expanded=(st.session_state.user_mode == 'expert')):
+        mc1, mc2, mc3, mc4 = st.columns(4)
+        with mc1: st.metric("Rows", f"{df.shape[0]:,}")
+        with mc2: st.metric("Columns", df.shape[1])
+        with mc3:
+            mem = df.memory_usage(deep=True).sum() / 1024**2
+            st.metric("Memory", f"{mem:.2f} MB")
+        with mc4: st.metric("Dtypes", df.dtypes.nunique())
 
-        t1, t2, t3 = st.tabs(["Head", "Sample", "Info"])
-
-        with t1:
-            st.dataframe(df.head(10), use_container_width=True)
-        with t2:
-            st.dataframe(df.sample(min(5, df.shape[0])), use_container_width=True)
-        with t3:
-            info_df = pd.DataFrame({
+        ot1, ot2, ot3 = st.tabs(["Head", "Sample", "Info"])
+        with ot1:
+            st.dataframe(df.head(10))
+        with ot2:
+            st.dataframe(df.sample(min(5, len(df))))
+        with ot3:
+            st.dataframe(pd.DataFrame({
                 'Column': df.columns,
+                'Type': df.dtypes.astype(str).values,
                 'Non-Null': df.count().values,
-                'Dtype': df.dtypes.astype(str).values
-            })
-            st.dataframe(info_df, use_container_width=True)
+                'Null %': (
+                    df.isnull().mean() * 100
+                ).round(1).values
+            }))
 
     # ============================================================
-    # 16. DATA CLEANING TOOLBOX (ENHANCED)
+    # CLEANING TOOLBOX
     # ============================================================
-    st.markdown("## 🧰 Step 4: Data Cleaning Tools")
-    
-    if st.session_state.user_mode == 'beginner':
-        st.info("💡 Use these tools to fix specific issues manually. Or use the 'Auto-Fix' button above for quick fixes!")
+    st.markdown("## 🧰 Data Cleaning Tools")
 
-    tb1, tb2, tb3, tb4 = st.tabs(
-        ["🕳️ Missing Values", "✂️ Rename/Drop Columns", "🔤 Text Cleaning", "🔎 Find & Replace"]
-    )
+    tb1, tb2, tb3, tb4 = st.tabs([
+        "🕳️ Missing Values",
+        "✂️ Columns",
+        "🔤 Text",
+        "🔎 Find & Replace"
+    ])
 
-    # MISSING VALUES TAB (ENHANCED WITH VALIDATION)
+    # -- MISSING VALUES --
     with tb1:
-        st.markdown("**Handle missing (null) values:**")
         miss_cols = df.columns[df.isnull().any()].tolist()
-
         if not miss_cols:
-            st.success("✅ No missing values in this dataset!")
+            st.success("✅ No missing values!")
         else:
             mv1, mv2, mv3 = st.columns(3)
             with mv1:
-                mv_col = st.selectbox("Select Column:", miss_cols, key="mv_col")
+                mv_col = st.selectbox("Column:", miss_cols, key="mv_col")
             with mv2:
-                mv_action = st.selectbox(
-                    "Action:",
-                    ["Drop Rows (this column null)", "Fill with Mean", "Fill with Median",
-                     "Fill with Mode", "Fill with Custom Value", "Forward Fill", "Backward Fill",
-                     "Interpolate"],
-                    key="mv_action"
-                )
-            
-            custom_val = None
-            validation_passed = True
+                mv_action = st.selectbox("Action:", [
+                    "Drop Rows", "Fill Mean", "Fill Median",
+                    "Fill Mode", "Fill Custom", "Forward Fill",
+                    "Backward Fill", "Interpolate"
+                ], key="mv_action")
 
+            custom_val = None
+            ok = True
             with mv3:
-                if mv_action == "Fill with Custom Value":
-                    custom_val = st.text_input("Custom Value:", key="mv_custom")
-                    
-                    # ✅ VALIDATE INPUT
-                    if custom_val == "":
-                        st.warning("⚠️ Enter a value")
-                        validation_passed = False
+                if mv_action == "Fill Custom":
+                    custom_val = st.text_input("Value:", key="mv_custom")
+                    if not custom_val:
+                        st.warning("Enter a value"); ok = False
                     elif pd.api.types.is_numeric_dtype(df[mv_col]):
                         try:
                             float(custom_val)
-                            st.success(f"✅ Will fill with: {custom_val}")
-                        except:
-                            st.error("❌ Column is numeric, enter a number")
-                            validation_passed = False
-                    else:
-                        st.success(f"✅ Will fill with: '{custom_val}'")
-                
-                st.write("")
-                
-                # Disable button if validation failed
-                if mv_action == "Fill with Custom Value":
-                    apply_mv = st.button("✅ Apply", key="mv_apply_btn", disabled=not validation_passed)
-                else:
-                    apply_mv = st.button("✅ Apply", key="mv_apply_btn")
+                        except Exception:
+                            st.error("Must be a number"); ok = False
+                apply_mv = st.button("✅ Apply",
+                                     key="mv_apply", disabled=not ok)
 
             if apply_mv:
                 try:
-                    new_df = df.copy()
-                    if mv_action == "Drop Rows (this column null)":
-                        new_df = new_df.dropna(subset=[mv_col])
-                    elif mv_action == "Fill with Mean":
-                        new_df[mv_col] = new_df[mv_col].fillna(new_df[mv_col].mean())
-                    elif mv_action == "Fill with Median":
-                        new_df[mv_col] = new_df[mv_col].fillna(new_df[mv_col].median())
-                    elif mv_action == "Fill with Mode":
-                        mode_val = new_df[mv_col].mode()
-                        new_df[mv_col] = new_df[mv_col].fillna(mode_val[0] if not mode_val.empty else "")
-                    elif mv_action == "Fill with Custom Value":
-                        if pd.api.types.is_numeric_dtype(df[mv_col]):
-                            custom_val = float(custom_val)
-                        new_df[mv_col] = new_df[mv_col].fillna(custom_val)
+                    ndf = df.copy()
+                    if mv_action == "Drop Rows":
+                        ndf = ndf.dropna(subset=[mv_col])
+                    elif mv_action == "Fill Mean":
+                        ndf[mv_col] = ndf[mv_col].fillna(
+                            ndf[mv_col].mean()
+                        )
+                    elif mv_action == "Fill Median":
+                        ndf[mv_col] = ndf[mv_col].fillna(
+                            ndf[mv_col].median()
+                        )
+                    elif mv_action == "Fill Mode":
+                        m = ndf[mv_col].mode()
+                        ndf[mv_col] = ndf[mv_col].fillna(
+                            m[0] if not m.empty else ""
+                        )
+                    elif mv_action == "Fill Custom":
+                        v = (float(custom_val)
+                             if pd.api.types.is_numeric_dtype(df[mv_col])
+                             else custom_val)
+                        ndf[mv_col] = ndf[mv_col].fillna(v)
                     elif mv_action == "Forward Fill":
-                        new_df[mv_col] = new_df[mv_col].ffill()
+                        ndf[mv_col] = ndf[mv_col].ffill()
                     elif mv_action == "Backward Fill":
-                        new_df[mv_col] = new_df[mv_col].bfill()
+                        ndf[mv_col] = ndf[mv_col].bfill()
                     elif mv_action == "Interpolate":
-                        new_df[mv_col] = new_df[mv_col].interpolate()
+                        ndf[mv_col] = ndf[mv_col].interpolate()
 
-                    apply_change(new_df, "🕳️ Missing Values", f"'{mv_col}' → {mv_action}")
-                    st.success(f"✅ '{mv_col}' updated. Remaining nulls: {new_df[mv_col].isnull().sum()}")
+                    apply_change(ndf, "Missing Values",
+                                 f"'{mv_col}' → {mv_action}")
+                    st.success(
+                        f"✅ Done! Remaining nulls: "
+                        f"{ndf[mv_col].isnull().sum()}"
+                    )
                     st.rerun()
                 except Exception as e:
-                    st.error(f"❌ Action failed: {e}")
+                    st.error(f"❌ {e}")
 
-    # RENAME/DROP COLUMNS TAB
+    # -- COLUMNS --
     with tb2:
-        st.markdown("**Rename a column:**")
         rc1, rc2, rc3 = st.columns([2, 2, 1])
         with rc1:
-            col_rename = st.selectbox("Select Column:", df.columns.tolist(), key="rename_col")
+            col_r = st.selectbox("Column:", df.columns.tolist(),
+                                 key="ren_col")
         with rc2:
-            new_name = st.text_input("New Name:", value=col_rename, key="rename_val")
+            new_n = st.text_input("New Name:", value=col_r,
+                                  key="ren_val")
         with rc3:
             st.write("")
-            if st.button("✏️ Rename", key="rename_btn"):
-                if new_name and new_name != col_rename:
-                    new_df = df.rename(columns={col_rename: new_name})
-                    apply_change(new_df, "✏️ Rename Column", f"'{col_rename}' → '{new_name}'")
-                    st.success(f"✅ Renamed!")
-                    st.rerun()
+            if st.button("✏️ Rename", key="ren_btn"):
+                if new_n and new_n != col_r:
+                    ndf = df.rename(columns={col_r: new_n})
+                    apply_change(ndf, "Rename", f"'{col_r}'→'{new_n}'")
+                    st.success("✅ Renamed!"); st.rerun()
 
         st.markdown("---")
-        st.markdown("**Drop columns:**")
-        drop_cols = st.multiselect("Select Columns to Drop:", df.columns.tolist(), key="drop_cols_ms")
-        if st.button("🗑️ Drop Selected", key="drop_cols_btn"):
-            if drop_cols:
-                new_df = df.drop(columns=drop_cols)
-                apply_change(new_df, "✂️ Drop Columns", f"Dropped: {', '.join(drop_cols)}")
-                st.success(f"✅ Dropped {len(drop_cols)} columns!")
-                st.rerun()
+        drop_c = st.multiselect("Drop Columns:",
+                                df.columns.tolist(), key="drop_ms")
+        if st.button("🗑️ Drop", key="drop_btn"):
+            if drop_c:
+                ndf = df.drop(columns=drop_c)
+                apply_change(ndf, "Drop Cols",
+                             f"Dropped: {', '.join(drop_c)}")
+                st.success("✅ Dropped!"); st.rerun()
 
-    # TEXT CLEANING TAB
+    # -- TEXT --
     with tb3:
-        text_cols = df.select_dtypes(include=['object']).columns.tolist()
-        if not text_cols:
-            st.info("No text/string columns found.")
+        t_cols = df.select_dtypes(include=['object']).columns.tolist()
+        if not t_cols:
+            st.info("No text columns found")
         else:
             tc1, tc2 = st.columns(2)
             with tc1:
-                tc_col = st.selectbox("Select Text Column:", text_cols, key="tc_col")
+                tc_col = st.selectbox("Column:", t_cols, key="tc_col")
             with tc2:
-                tc_action = st.selectbox(
-                    "Cleaning Action:",
-                    ["Trim Whitespace", "Lowercase", "UPPERCASE", "Title Case",
-                     "Remove Special Characters", "Remove Extra Spaces"],
-                    key="tc_action"
-                )
-
-            if st.button("🧹 Apply", key="tc_apply_btn"):
+                tc_act = st.selectbox("Action:", [
+                    "Trim Whitespace", "Lowercase", "UPPERCASE",
+                    "Title Case", "Remove Special Chars",
+                    "Remove Extra Spaces"
+                ], key="tc_act")
+            if st.button("🧹 Apply", key="tc_btn"):
                 try:
-                    new_df = df.copy()
-                    s = new_df[tc_col].astype(str)
-                    if tc_action == "Trim Whitespace":
+                    ndf = df.copy()
+                    s = ndf[tc_col].astype(str)
+                    if tc_act == "Trim Whitespace":
                         s = s.str.strip()
-                    elif tc_action == "Lowercase":
+                    elif tc_act == "Lowercase":
                         s = s.str.lower()
-                    elif tc_action == "UPPERCASE":
+                    elif tc_act == "UPPERCASE":
                         s = s.str.upper()
-                    elif tc_action == "Title Case":
+                    elif tc_act == "Title Case":
                         s = s.str.title()
-                    elif tc_action == "Remove Special Characters":
-                        s = s.str.replace(r'[^A-Za-z0-9\s]', '', regex=True)
-                    elif tc_action == "Remove Extra Spaces":
-                        s = s.str.replace(r'\s+', ' ', regex=True).str.strip()
-
-                    new_df[tc_col] = s
-                    apply_change(new_df, "🔤 Text Cleaning", f"'{tc_col}' → {tc_action}")
-                    st.success(f"✅ Cleaned!")
-                    st.rerun()
+                    elif tc_act == "Remove Special Chars":
+                        s = s.str.replace(r'[^A-Za-z0-9\s]', '',
+                                          regex=True)
+                    elif tc_act == "Remove Extra Spaces":
+                        s = s.str.replace(r'\s+', ' ',
+                                          regex=True).str.strip()
+                    ndf[tc_col] = s
+                    apply_change(ndf, "Text Clean",
+                                 f"'{tc_col}'→{tc_act}")
+                    st.success("✅ Done!"); st.rerun()
                 except Exception as e:
-                    st.error(f"❌ Failed: {e}")
+                    st.error(f"❌ {e}")
 
-    # FIND & REPLACE TAB
+    # -- FIND & REPLACE --
     with tb4:
-        fr_col = st.selectbox("Select Column:", df.columns.tolist(), key="fr_col")
+        fr_col = st.selectbox("Column:", df.columns.tolist(),
+                              key="fr_col")
         fr1, fr2 = st.columns(2)
         with fr1:
-            find_val = st.text_input("Find:", key="fr_find")
+            find_v = st.text_input("Find:", key="fr_find")
         with fr2:
-            replace_val = st.text_input("Replace With:", key="fr_replace")
-
-        use_regex = st.checkbox("Use Regex Pattern", value=False, key="fr_regex_toggle")
-
-        if st.button("🔎 Apply", key="fr_apply_btn"):
-            if find_val == "":
-                st.warning("⚠️ Enter a value to find")
+            repl_v = st.text_input("Replace:", key="fr_repl")
+        use_rx = st.checkbox("Use Regex", key="fr_rx")
+        if st.button("🔎 Apply", key="fr_btn"):
+            if not find_v:
+                st.warning("Enter a search value")
             else:
                 try:
-                    new_df = df.copy()
-                    new_df[fr_col] = new_df[fr_col].astype(str).str.replace(
-                        find_val, replace_val, regex=use_regex
+                    ndf = df.copy()
+                    ndf[fr_col] = ndf[fr_col].astype(str).str.replace(
+                        find_v, repl_v, regex=use_rx
                     )
-                    apply_change(new_df, "🔎 Find & Replace", f"'{find_val}' → '{replace_val}'")
-                    st.success(f"✅ Replaced!")
-                    st.rerun()
+                    apply_change(ndf, "Find&Replace",
+                                 f"'{find_v}'→'{repl_v}' in '{fr_col}'")
+                    st.success("✅ Done!"); st.rerun()
                 except Exception as e:
-                    st.error(f"❌ Failed: {e}")
+                    st.error(f"❌ {e}")
 
     st.markdown("---")
 
     # ============================================================
-    # 17. OUTLIER & FUZZY DETECTION (ENHANCED)
+    # OUTLIER + FUZZY
     # ============================================================
     st.markdown("## 🎯 Advanced Detection")
+    ob1, ob2 = st.tabs(["📏 Outliers", "🧩 Fuzzy Duplicates"])
 
-    ob1, ob2 = st.tabs(["📏 Outlier Detection", "🧩 Fuzzy Duplicates"])
-
-    # OUTLIER DETECTION TAB
     with ob1:
-        out_num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-
-        if not out_num_cols:
-            st.info("No numeric columns found.")
+        num_c = df.select_dtypes(include=[np.number]).columns.tolist()
+        if not num_c:
+            st.info("No numeric columns")
         else:
             oc1, oc2, oc3 = st.columns(3)
             with oc1:
-                out_col = st.selectbox("Select Column:", out_num_cols, key="out_col")
+                out_col = st.selectbox("Column:", num_c, key="out_col")
             with oc2:
-                out_method = st.selectbox("Method:", ["IQR", "Z-Score"], key="out_method")
+                out_m = st.selectbox("Method:", ["IQR","Z-Score"],
+                                     key="out_m")
             with oc3:
-                if out_method == "IQR":
-                    iqr_mult = st.slider("IQR Multiplier:", 1.0, 3.0, 1.5, 0.1, key="iqr_mult")
+                if out_m == "IQR":
+                    iq_m = st.slider("Multiplier:", 1.0, 3.0, 1.5,
+                                     0.1, key="iqr_m")
                 else:
-                    z_thresh = st.slider("Z-Score Threshold:", 1.0, 5.0, 3.0, 0.1, key="z_thresh")
+                    z_t = st.slider("Threshold:", 1.0, 5.0, 3.0,
+                                    0.1, key="z_t")
 
-            col_data = df[out_col].dropna()
-
-            if out_method == "IQR":
-                q1 = col_data.quantile(0.25)
-                q3 = col_data.quantile(0.75)
+            cd = df[out_col].dropna()
+            if out_m == "IQR":
+                q1 = cd.quantile(0.25); q3 = cd.quantile(0.75)
                 iqr = q3 - q1
-                lower = q1 - iqr_mult * iqr
-                upper = q3 + iqr_mult * iqr
-                outlier_mask = (df[out_col] < lower) | (df[out_col] > upper)
+                lo = q1 - iq_m * iqr; hi = q3 + iq_m * iqr
+                mask = (df[out_col] < lo) | (df[out_col] > hi)
             else:
-                mean = col_data.mean()
-                std = col_data.std()
-                z_scores = (df[out_col] - mean) / std if std != 0 else df[out_col] * 0
-                outlier_mask = z_scores.abs() > z_thresh
+                mn = cd.mean(); sd = cd.std()
+                zs = (df[out_col] - mn) / sd if sd != 0 else df[out_col]*0
+                mask = zs.abs() > z_t
 
-            outlier_mask = outlier_mask.fillna(False)
-            n_outliers = int(outlier_mask.sum())
+            mask = mask.fillna(False)
+            n_out = int(mask.sum())
+            st.metric("Outliers Found", n_out)
 
-            oc4, oc5 = st.columns(2)
-            with oc4:
-                st.metric("Outliers Found", n_outliers)
-            with oc5:
-                fig = px.box(df, y=out_col, title=f'Box Plot: {out_col}', points='outliers')
-                st.plotly_chart(fig, use_container_width=True)
+            fig = px.box(df, y=out_col, points='outliers',
+                         title=f'Box Plot: {out_col}')
+            st.plotly_chart(fig, use_container_width=True)
 
-            if n_outliers > 0:
-                if st.checkbox("👀 Show Outliers", key="show_outliers"):
-                    st.dataframe(df[outlier_mask], use_container_width=True)
-
-                oa1, oa2 = st.columns(2)
-                with oa1:
-                    if st.button("🗑️ Remove Outliers", key="remove_outliers_btn"):
-                        new_df = df[~outlier_mask]
-                        apply_change(new_df, "📏 Remove Outliers", f"{n_outliers} rows removed")
-                        st.success(f"✅ Removed {n_outliers} outliers!")
-                        st.rerun()
-                with oa2:
-                    if st.button("📌 Cap Outliers", key="cap_outliers_btn"):
-                        new_df = df.copy()
-                        if out_method == "IQR":
-                            new_df[out_col] = new_df[out_col].clip(lower=lower, upper=upper)
+            if n_out > 0:
+                if st.checkbox("Show Outlier Rows", key="sh_out"):
+                    st.dataframe(df[mask])
+                a1, a2 = st.columns(2)
+                with a1:
+                    if st.button("🗑️ Remove", key="rm_out"):
+                        ndf = df[~mask].copy()
+                        apply_change(ndf, "Remove Outliers",
+                                     f"{n_out} removed from '{out_col}'")
+                        st.success("✅ Removed!"); st.rerun()
+                with a2:
+                    if st.button("📌 Cap", key="cap_out"):
+                        ndf = df.copy()
+                        if out_m == "IQR":
+                            ndf[out_col] = ndf[out_col].clip(lo, hi)
                         else:
-                            new_df[out_col] = new_df[out_col].clip(lower=mean - z_thresh * std,
-                                                                   upper=mean + z_thresh * std)
-                        apply_change(new_df, "📌 Cap Outliers", f"'{out_col}' capped")
-                        st.success(f"✅ Outliers capped!")
-                        st.rerun()
+                            ndf[out_col] = ndf[out_col].clip(
+                                mn - z_t*sd, mn + z_t*sd
+                            )
+                        apply_change(ndf, "Cap Outliers",
+                                     f"'{out_col}' capped")
+                        st.success("✅ Capped!"); st.rerun()
+            else:
+                st.success("✅ No outliers!")
 
-    # FUZZY DUPLICATES TAB (ENHANCED - PERSISTENT RESULTS)
     with ob2:
-        st.info("💡 Finds similar but not identical values (e.g., 'Jatin Kumar' vs 'jatin  kumar')")
+        st.info("Finds similar-but-not-identical text values")
+        fz_cols = df.select_dtypes(
+            include=['object']
+        ).columns.tolist()
 
-        fuzzy_text_cols = df.select_dtypes(include=['object']).columns.tolist()
-
-        if not fuzzy_text_cols:
-            st.info("No text columns found.")
+        if not fz_cols:
+            st.info("No text columns")
         else:
             fz1, fz2 = st.columns(2)
             with fz1:
-                fuzzy_col = st.selectbox("Text Column:", fuzzy_text_cols, key="fuzzy_col")
+                fz_col = st.selectbox("Column:", fz_cols, key="fz_col")
             with fz2:
-                fuzzy_thresh = st.slider("Similarity %:", 70, 99, 90, 1, key="fuzzy_thresh")
+                fz_thr = st.slider("Similarity %:", 70, 99, 90,
+                                   key="fz_thr")
 
-            if st.button("🔍 Find Fuzzy Duplicates", key="fuzzy_find_btn"):
-                sample_df = df[[fuzzy_col]].dropna().reset_index()
-                sample_df = sample_df.head(2000)
-                values = sample_df[fuzzy_col].astype(str).tolist()
-                idxs = sample_df['index'].tolist()
+            if st.button("🔍 Find Fuzzy Duplicates", key="fz_btn"):
+                sdf = df[[fz_col]].dropna().reset_index().head(2000)
+                vals = sdf[fz_col].astype(str).tolist()
+                idxs = sdf['index'].tolist()
+                total = len(vals)
 
-                # ✅ PROGRESS BAR
-                progress_bar = st.progress(0)
-                status_text = st.empty()
-                
-                matches = []
-                seen = set()
-                total = len(values)
-                
+                pb = st.progress(0)
+                st_txt = st.empty()
+                matches = []; seen = set()
+
                 for i in range(total):
-                    if i % 10 == 0:
-                        progress_bar.progress(min(i / total, 1.0))
-                        status_text.text(f"🔍 Comparing row {i:,} of {total:,}...")
-                    
+                    if i % 20 == 0:
+                        pb.progress(min(i/total, 1.0))
+                        st_txt.text(f"Comparing {i}/{total}...")
                     if i in seen:
                         continue
-                    group = [i]
-                    for j in range(i + 1, total):
+                    grp = [i]
+                    for j in range(i+1, total):
                         if j in seen:
                             continue
-                        score = fuzz.ratio(values[i], values[j])
-                        if score >= fuzzy_thresh:
-                            group.append(j)
-                            seen.add(j)
-                    if len(group) > 1:
+                        if fuzz.ratio(vals[i], vals[j]) >= fz_thr:
+                            grp.append(j); seen.add(j)
+                    if len(grp) > 1:
                         seen.add(i)
-                        for g in group:
+                        for g in grp:
                             matches.append({
-                                'Group': len(matches) // max(len(group), 1) + 1,
+                                'Group': len(matches)//max(len(grp),1)+1,
                                 'Row Index': idxs[g],
-                                'Value': values[g]
+                                'Value': vals[g]
                             })
-                
-                progress_bar.empty()
-                status_text.empty()
 
-                if matches:
-                    match_df = pd.DataFrame(matches)
-                    st.session_state['fuzzy_matches'] = match_df
-                    st.rerun()
-                else:
-                    st.session_state['fuzzy_matches'] = None
-                    st.success("✅ No fuzzy duplicates found!")
-
-        # ✅ SHOW RESULTS PERSISTENTLY
-        if 'fuzzy_matches' in st.session_state and st.session_state['fuzzy_matches'] is not None:
-            match_df = st.session_state['fuzzy_matches']
-            
-            st.success(f"✅ Analysis complete!")
-            
-            fm1, fm2, fm3 = st.columns(3)
-            with fm1:
-                st.metric("Groups Found", match_df['Group'].nunique())
-            with fm2:
-                st.metric("Rows Involved", match_df['Row Index'].nunique())
-            with fm3:
-                avg = match_df.groupby('Group').size().mean()
-                st.metric("Avg Group Size", f"{avg:.1f}")
-            
-            st.markdown("### 🧩 Fuzzy Duplicate Groups")
-            st.dataframe(match_df, use_container_width=True, height=400)
-            
-            fuzzy_csv = match_df.to_csv(index=False).encode('utf-8')
-            st.download_button("📥 Download Matches", fuzzy_csv,
-                               file_name="fuzzy_matches.csv", mime="text/csv")
-            
-            if st.button("🗑️ Clear Results", key="clear_fuzzy"):
-                st.session_state['fuzzy_matches'] = None
+                pb.empty(); st_txt.empty()
+                st.session_state['fuzzy_matches'] = (
+                    pd.DataFrame(matches) if matches else None
+                )
                 st.rerun()
+
+            # ✅ PERSISTENT RESULTS
+            fm = st.session_state.get('fuzzy_matches')
+            if fm is not None:
+                fm1, fm2, fm3 = st.columns(3)
+                with fm1: st.metric("Groups", fm['Group'].nunique())
+                with fm2: st.metric("Rows", fm['Row Index'].nunique())
+                with fm3:
+                    avg = fm.groupby('Group').size().mean()
+                    st.metric("Avg Size", f"{avg:.1f}")
+                st.dataframe(fm)
+                st.download_button(
+                    "📥 Download",
+                    fm.to_csv(index=False).encode(),
+                    file_name="fuzzy_matches.csv",
+                    mime="text/csv"
+                )
+                if st.button("Clear", key="clr_fz"):
+                    st.session_state['fuzzy_matches'] = None
+                    st.rerun()
+            elif st.session_state.get('fuzzy_matches') is not None:
+                st.success("✅ No fuzzy duplicates found!")
 
     st.markdown("---")
 
     # ============================================================
-    # 18. ML & ANOMALY DETECTION
+    # ML + ANOMALY
     # ============================================================
     st.markdown("## 🤖 AI-Powered Analysis")
 
     if not SKLEARN_OK:
-        st.warning("⚠️ scikit-learn not installed. Run: `pip install scikit-learn`")
+        st.warning("Install scikit-learn: `pip install scikit-learn`")
     else:
         ml1, ml2 = st.tabs(["🎯 Quick Predict", "🚨 Anomaly Detection"])
 
-        # QUICK PREDICT TAB
         with ml1:
-            st.info("💡 Train an AI model on your data (100% local, no API)")
-
-            ml_num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-
+            num_cols_ml = df.select_dtypes(
+                include=[np.number]
+            ).columns.tolist()
             if len(df.columns) < 2:
-                st.info("Need at least 2 columns.")
+                st.info("Need 2+ columns")
             else:
                 mp1, mp2 = st.columns(2)
                 with mp1:
-                    target_col = st.selectbox("🎯 Target (predict this):", df.columns.tolist(), key="ml_target")
+                    tgt = st.selectbox("Target:", df.columns.tolist(),
+                                       key="ml_tgt")
                 with mp2:
-                    feat_options = [c for c in df.columns if c != target_col]
-                    feature_cols = st.multiselect("📊 Features (use these):", feat_options,
-                                                  default=[c for c in ml_num_cols if c != target_col][:5],
-                                                  key="ml_features")
+                    feats = st.multiselect(
+                        "Features:",
+                        [c for c in df.columns if c != tgt],
+                        default=[c for c in num_cols_ml
+                                 if c != tgt][:5],
+                        key="ml_feats"
+                    )
 
-                target_series = df[target_col].dropna()
-                is_numeric = pd.api.types.is_numeric_dtype(target_series)
-                n_unique = target_series.nunique()
+                ts = df[tgt].dropna()
+                is_num = pd.api.types.is_numeric_dtype(ts)
+                prob = ("Regression" if is_num and ts.nunique() > 15
+                        else "Classification")
+                st.caption(f"Detected: **{prob}**")
 
-                if is_numeric and n_unique > 15:
-                    problem_type = "Regression"
-                else:
-                    problem_type = "Classification"
-                st.caption(f"🧠 Detected: **{problem_type}** ({n_unique:,} unique values)")
-
-                if st.button("🚀 Train Model", key="ml_train_btn"):
-                    if not feature_cols:
-                        st.warning("⚠️ Select features")
+                if st.button("🚀 Train", key="ml_tr"):
+                    if not feats:
+                        st.warning("Select features")
                     else:
                         try:
-                            with st.spinner("🧠 Training..."):
-                                ml_df = df[feature_cols + [target_col]].dropna()
-                                if len(ml_df) > ML_SAMPLE_CAP:
-                                    ml_df = ml_df.sample(ML_SAMPLE_CAP, random_state=42)
+                            with st.spinner("Training..."):
+                                mdf = df[feats+[tgt]].dropna()
+                                if len(mdf) > ML_SAMPLE_CAP:
+                                    mdf = mdf.sample(ML_SAMPLE_CAP,
+                                                     random_state=42)
+                                if len(mdf) < 30:
+                                    st.error("Need 30+ rows"); st.stop()
 
-                                if len(ml_df) < 30:
-                                    st.error("❌ Need 30+ rows")
+                                X = pd.get_dummies(mdf[feats],
+                                                   drop_first=True)
+                                if X.shape[1] > 200:
+                                    X = X.iloc[:, :200]
+                                y = mdf[tgt]
+                                is_r = prob == "Regression"
+                                if not is_r:
+                                    y = y.astype(str)
+
+                                Xtr,Xte,ytr,yte = train_test_split(
+                                    X,y,test_size=0.2,random_state=42
+                                )
+                                mdl = (
+                                    RandomForestRegressor(
+                                        n_estimators=60,
+                                        random_state=42,n_jobs=-1)
+                                    if is_r else
+                                    RandomForestClassifier(
+                                        n_estimators=60,
+                                        random_state=42,n_jobs=-1)
+                                )
+                                mdl.fit(Xtr, ytr)
+                                preds = mdl.predict(Xte)
+
+                                r1,r2,r3 = st.columns(3)
+                                if is_r:
+                                    rv = r2_score(yte, preds)
+                                    mae = mean_absolute_error(yte, preds)
+                                    rmse = float(np.sqrt(
+                                        mean_squared_error(yte, preds)
+                                    ))
+                                    with r1: st.metric("R²",f"{rv:.3f}")
+                                    with r2: st.metric("MAE",f"{mae:.2f}")
+                                    with r3: st.metric("RMSE",f"{rmse:.2f}")
+                                    st.session_state['ml_summary'] = (
+                                        f"R²={rv:.3f},MAE={mae:.2f}"
+                                    )
+                                    fig = px.scatter(
+                                        x=yte, y=preds,
+                                        labels={'x':'Actual','y':'Predicted'}
+                                    )
+                                    st.plotly_chart(fig,
+                                                    use_container_width=True)
                                 else:
-                                    X = pd.get_dummies(ml_df[feature_cols], drop_first=True)
-                                    if X.shape[1] > 200:
-                                        X = X.iloc[:, :200]
-                                    y = ml_df[target_col]
+                                    acc = accuracy_score(yte, preds)
+                                    with r1:
+                                        st.metric("Accuracy",
+                                                  f"{acc*100:.1f}%")
+                                    with r2: st.metric("Classes",y.nunique())
+                                    with r3: st.metric("Test Rows",len(yte))
+                                    st.session_state['ml_summary'] = (
+                                        f"Acc={acc*100:.1f}%"
+                                    )
 
-                                    is_reg = problem_type == "Regression"
-                                    if not is_reg:
-                                        y = y.astype(str)
+                                imp = pd.DataFrame({
+                                    'Feature': X.columns,
+                                    'Importance': mdl.feature_importances_
+                                }).sort_values('Importance',
+                                               ascending=False).head(15)
+                                fig = px.bar(
+                                    imp, x='Importance', y='Feature',
+                                    orientation='h',
+                                    title='Feature Importance',
+                                    color='Importance'
+                                )
+                                fig.update_layout(
+                                    yaxis={'categoryorder':'total ascending'}
+                                )
+                                st.plotly_chart(fig,
+                                                use_container_width=True)
+                                st.session_state['ml_importance'] = imp
 
-                                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-                                    if is_reg:
-                                        model = RandomForestRegressor(n_estimators=60, random_state=42, n_jobs=-1)
-                                    else:
-                                        model = RandomForestClassifier(n_estimators=60, random_state=42, n_jobs=-1)
-
-                                    model.fit(X_train, y_train)
-                                    preds = model.predict(X_test)
-
-                                    st.markdown("### 📈 Results")
-                                    r1, r2, r3 = st.columns(3)
-                                    if is_reg:
-                                        r2_val = r2_score(y_test, preds)
-                                        mae = mean_absolute_error(y_test, preds)
-                                        rmse = float(np.sqrt(mean_squared_error(y_test, preds)))
-                                        with r1:
-                                            st.metric("R² Score", f"{r2_val:.3f}")
-                                        with r2:
-                                            st.metric("MAE", f"{mae:,.2f}")
-                                        with r3:
-                                            st.metric("RMSE", f"{rmse:,.2f}")
-                                        st.session_state['ml_summary'] = f"R²={r2_val:.3f}, MAE={mae:.2f}"
-                                        
-                                        fig = px.scatter(x=y_test, y=preds, labels={'x': 'Actual', 'y': 'Predicted'})
-                                        fig.add_trace(go.Scatter(x=[y_test.min(), y_test.max()],
-                                                                 y=[y_test.min(), y_test.max()],
-                                                                 mode='lines', name='Perfect', line=dict(dash='dash')))
-                                        st.plotly_chart(fig, use_container_width=True)
-                                    else:
-                                        acc = accuracy_score(y_test, preds)
-                                        with r1:
-                                            st.metric("Accuracy", f"{acc*100:.1f}%")
-                                        with r2:
-                                            st.metric("Classes", y.nunique())
-                                        with r3:
-                                            st.metric("Test Rows", len(y_test))
-                                        st.session_state['ml_summary'] = f"Accuracy={acc*100:.1f}%"
-
-                                    # Feature importance
-                                    imp_df = pd.DataFrame({
-                                        'Feature': X.columns,
-                                        'Importance': model.feature_importances_
-                                    }).sort_values('Importance', ascending=False).head(15)
-                                    fig = px.bar(imp_df, x='Importance', y='Feature', orientation='h',
-                                                 title='Feature Importance', color='Importance')
-                                    fig.update_layout(yaxis={'categoryorder': 'total ascending'})
-                                    st.plotly_chart(fig, use_container_width=True)
-                                    st.session_state['ml_importance'] = imp_df
-                                    
-                                    if 3 not in st.session_state.completed_steps:
-                                        st.session_state.completed_steps.append(3)
-                                        st.session_state.workflow_step = 4
+                                if 3 not in st.session_state.completed_steps:
+                                    st.session_state.completed_steps.append(3)
 
                         except Exception as e:
-                            st.error(f"❌ Failed: {e}")
+                            st.error(f"❌ {e}")
 
-        # ANOMALY DETECTION TAB
         with ml2:
-            st.info("💡 Isolation Forest finds unusual rows (fraud, errors, outliers)")
-
-            an_num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-
-            if len(an_num_cols) < 1:
+            an_nc = df.select_dtypes(
+                include=[np.number]
+            ).columns.tolist()
+            if not an_nc:
                 st.info("Need numeric columns")
             else:
-                an1, an2 = st.columns(2)
-                with an1:
-                    anomaly_cols = st.multiselect("Columns:", an_num_cols, default=an_num_cols[:4], key="anomaly_cols")
-                with an2:
-                    contamination = st.slider("Expected Anomaly %:", 1, 20, 5, 1, key="contamination") / 100
+                a1, a2 = st.columns(2)
+                with a1:
+                    an_cols = st.multiselect(
+                        "Columns:", an_nc,
+                        default=an_nc[:4], key="an_cols"
+                    )
+                with a2:
+                    cont = st.slider("Anomaly %:", 1, 20, 5,
+                                     key="cont") / 100
 
-                if st.button("🚨 Detect", key="anomaly_btn"):
-                    if not anomaly_cols:
-                        st.warning("⚠️ Select columns")
+                if st.button("🚨 Detect", key="an_btn"):
+                    if not an_cols:
+                        st.warning("Select columns")
                     else:
                         try:
-                            with st.spinner("🔍 Scanning..."):
-                                an_data = df[anomaly_cols].dropna()
-                                if len(an_data) < 20:
-                                    st.error("❌ Need 20+ rows")
-                                else:
-                                    iso = IsolationForest(contamination=contamination, random_state=42, n_jobs=-1)
-                                    labels = iso.fit_predict(an_data)
-                                    scores = iso.decision_function(an_data)
-                                    st.session_state['anomaly_result'] = {
-                                        'index': an_data.index[labels == -1].tolist(),
-                                        'cols': anomaly_cols,
-                                        'labels': labels,
-                                        'scores': scores,
-                                        'data_index': an_data.index.tolist(),
-                                        'n_scanned': len(an_data),
-                                    }
-                                    st.rerun()
+                            with st.spinner("Scanning..."):
+                                ad = df[an_cols].dropna()
+                                if len(ad) < 20:
+                                    st.error("Need 20+ rows"); st.stop()
+                                iso = IsolationForest(
+                                    contamination=cont,
+                                    random_state=42, n_jobs=-1
+                                )
+                                lbs = iso.fit_predict(ad)
+                                st.session_state['anomaly_result'] = {
+                                    'index': ad.index[lbs==-1].tolist(),
+                                    'cols': an_cols,
+                                    'data_index': ad.index.tolist(),
+                                    'n_scanned': len(ad),
+                                }
+                            st.rerun()
                         except Exception as e:
-                            st.error(f"❌ Failed: {e}")
+                            st.error(f"❌ {e}")
 
-                # Show results persistently
                 ar = st.session_state.get('anomaly_result')
                 if ar:
-                    anomaly_idx = [i for i in ar['index'] if i in df.index]
-                    n_anom = len(anomaly_idx)
-
-                    am1, am2, am3 = st.columns(3)
-                    with am1:
-                        st.metric("Anomalies", f"{n_anom:,}")
-                    with am2:
-                        st.metric("Scanned", f"{ar['n_scanned']:,}")
+                    aidx = [i for i in ar['index'] if i in df.index]
+                    n_a = len(aidx)
+                    am1,am2,am3 = st.columns(3)
+                    with am1: st.metric("Anomalies", n_a)
+                    with am2: st.metric("Scanned", ar['n_scanned'])
                     with am3:
-                        st.metric("Rate", f"{n_anom/max(ar['n_scanned'],1)*100:.1f}%")
+                        st.metric("Rate",
+                                  f"{n_a/max(ar['n_scanned'],1)*100:.1f}%")
+                    st.session_state['anomaly_summary'] = (
+                        f"{n_a} anomalies in {ar['n_scanned']} rows"
+                    )
 
-                    st.session_state['anomaly_summary'] = f"{n_anom:,} anomalies in {ar['n_scanned']:,} rows"
-
-                    plot_cols = [c for c in ar['cols'] if c in df.columns]
-                    valid_idx = [i for i in ar['data_index'] if i in df.index]
-                    if len(plot_cols) >= 2 and valid_idx:
-                        plot_df = df.loc[valid_idx, plot_cols].copy()
-                        plot_df['Status'] = np.where(plot_df.index.isin(anomaly_idx), 'Anomaly', 'Normal')
-                        fig = px.scatter(plot_df, x=plot_cols[0], y=plot_cols[1], color='Status',
-                                         color_discrete_map={'Anomaly': 'red', 'Normal': 'lightblue'})
+                    pc = [c for c in ar['cols'] if c in df.columns]
+                    vi = [i for i in ar['data_index'] if i in df.index]
+                    if len(pc) >= 2 and vi:
+                        pdf = df.loc[vi, pc].copy()
+                        pdf['Status'] = np.where(
+                            pdf.index.isin(aidx),'Anomaly','Normal'
+                        )
+                        fig = px.scatter(
+                            pdf, x=pc[0], y=pc[1], color='Status',
+                            color_discrete_map={
+                                'Anomaly':'red','Normal':'lightblue'
+                            }
+                        )
                         st.plotly_chart(fig, use_container_width=True)
 
-                    if n_anom > 0:
-                        with st.expander(f"👀 View {n_anom} Anomalies"):
-                            st.dataframe(df.loc[anomaly_idx], use_container_width=True)
-
-                        if st.button("🗑️ Remove", key="rm_anomaly_btn"):
-                            new_df = df.drop(index=anomaly_idx)
-                            apply_change(new_df, "🚨 Remove Anomalies", f"{n_anom} rows removed")
-                            st.session_state.pop('anomaly_result', None)
-                            st.success(f"✅ Removed!")
-                            st.rerun()
+                    if n_a > 0:
+                        with st.expander(f"👀 View {n_a} Anomalies"):
+                            st.dataframe(df.loc[aidx])
+                        if st.button("🗑️ Remove", key="rm_an"):
+                            ndf = df.drop(index=aidx)
+                            apply_change(ndf, "Remove Anomalies",
+                                         f"{n_a} rows removed")
+                            st.session_state.pop('anomaly_result',None)
+                            st.success("✅ Removed!"); st.rerun()
 
     st.markdown("---")
 
     # ============================================================
-    # 19. VISUALIZATIONS (ENHANCED)
+    # VISUALIZATIONS
     # ============================================================
     st.markdown("## 📈 Visualizations")
 
-    if st.session_state.user_mode == 'beginner':
-        st.info("💡 Explore your data with interactive charts")
-
     num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     cat_cols = df.select_dtypes(include=['object']).columns.tolist()
-    date_cols = df.select_dtypes(include=['datetime64']).columns.tolist()
+    date_cols = df.select_dtypes(
+        include=['datetime64']
+    ).columns.tolist()
 
-    v1, v2, v3, v4 = st.tabs(["📊 Numeric", "🎨 Categorical", "🔥 Correlation", "📉 Trend"])
+    v1,v2,v3,v4 = st.tabs([
+        "📊 Numeric","🎨 Categorical","🔥 Correlation","📉 Trend"
+    ])
 
     with v1:
         if num_cols:
-            sel_num = st.selectbox("Column:", num_cols, key="num_viz")
-            vc1, vc2 = st.columns(2)
+            sn = st.selectbox("Column:", num_cols, key="nv")
+            vc1,vc2 = st.columns(2)
             with vc1:
-                fig = px.histogram(df, x=sel_num, nbins=30, title=f'Distribution: {sel_num}')
+                fig = px.histogram(df, x=sn, nbins=30,
+                                   title=f'Distribution: {sn}')
                 st.plotly_chart(fig, use_container_width=True)
             with vc2:
-                fig = px.box(df, y=sel_num, title=f'Box Plot: {sel_num}')
+                fig = px.box(df, y=sn, title=f'Box: {sn}')
                 st.plotly_chart(fig, use_container_width=True)
-
             if len(num_cols) >= 2:
-                st.markdown("**Scatter Plot:**")
-                sc1, sc2 = st.columns(2)
+                sc1,sc2 = st.columns(2)
                 with sc1:
-                    x_axis = st.selectbox("X:", num_cols, key="scatter_x")
+                    xa = st.selectbox("X:", num_cols, key="sx")
                 with sc2:
-                    y_axis = st.selectbox("Y:", [c for c in num_cols if c != x_axis], key="scatter_y")
-                fig = px.scatter(df, x=x_axis, y=y_axis, title=f'{x_axis} vs {y_axis}')
+                    ya = st.selectbox(
+                        "Y:", [c for c in num_cols if c!=xa], key="sy"
+                    )
+                fig = px.scatter(df, x=xa, y=ya,
+                                 title=f'{xa} vs {ya}')
                 st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No numeric columns")
 
     with v2:
         if cat_cols:
-            sel_cat = st.selectbox("Column:", cat_cols, key="cat_viz")
-            vc = df[sel_cat].value_counts().head(15).reset_index()
-            vc.columns = [sel_cat, 'Count']
-            fig = px.bar(vc, x=sel_cat, y='Count', title=f'Top 15: {sel_cat}', color='Count')
+            sc = st.selectbox("Column:", cat_cols, key="cv")
+            vc = df[sc].value_counts().head(15).reset_index()
+            vc.columns = [sc,'Count']
+            fig = px.bar(vc, x=sc, y='Count',
+                         title=f'Top 15: {sc}', color='Count')
             st.plotly_chart(fig, use_container_width=True)
+            fig2 = px.pie(vc.head(8), names=sc, values='Count',
+                          title=f'Distribution: {sc}')
+            st.plotly_chart(fig2, use_container_width=True)
         else:
             st.info("No categorical columns")
 
     with v3:
         if len(num_cols) >= 2:
             corr = cached_corr(df[num_cols])
-            fig = px.imshow(corr, text_auto='.2f', title='Correlation Heatmap', color_continuous_scale='RdBu_r')
+            fig = px.imshow(corr, text_auto='.2f',
+                            title='Correlation Heatmap',
+                            color_continuous_scale='RdBu_r')
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Need 2+ numeric columns")
 
     with v4:
         if date_cols and num_cols:
-            dc1, dc2 = st.columns(2)
+            dc1,dc2 = st.columns(2)
             with dc1:
-                x_date = st.selectbox("Date:", date_cols, key="trend_x")
+                xd = st.selectbox("Date:", date_cols, key="td_x")
             with dc2:
-                y_val = st.selectbox("Value:", num_cols, key="trend_y")
-            trend_df = df.dropna(subset=[x_date, y_val]).sort_values(x_date)
-            fig = px.line(trend_df, x=x_date, y=y_val, title=f'{y_val} Over Time')
+                yv = st.selectbox("Value:", num_cols, key="td_y")
+            tdf = df.dropna(subset=[xd,yv]).sort_values(xd)
+            fig = px.line(tdf, x=xd, y=yv,
+                          title=f'{yv} Over Time')
             st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("Need date + numeric column")
+            st.info("Need a date column and numeric column. "
+                    "Convert date column type first.")
 
     st.markdown("---")
 
     # ============================================================
-    # 20. DOWNLOAD SECTION (ENHANCED)
+    # DOWNLOAD
     # ============================================================
-    st.markdown("## 💾 Step 5: Download Your Results")
-    
+    st.markdown("## 💾 Download Results")
     if st.session_state.user_mode == 'beginner':
-        st.info("💡 Download your cleaned data before closing this tab - nothing is saved on our servers!")
+        st.info("💡 Download before closing - nothing saved on servers!")
 
     final_df = st.session_state.current_df
 
-    dl1, dl2, dl3 = st.columns(3)
-
+    dl1,dl2,dl3 = st.columns(3)
     with dl1:
-        csv_out = final_df.to_csv(index=False).encode('utf-8')
         st.download_button(
             "📥 Download CSV",
-            csv_out,
+            final_df.to_csv(index=False).encode(),
             file_name=f"cleaned_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
             mime="text/csv",
             use_container_width=True
         )
-
     with dl2:
-        buffer = BytesIO()
-        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-            final_df.to_excel(writer, index=False, sheet_name='Data')
+        buf = BytesIO()
+        with pd.ExcelWriter(buf, engine='openpyxl') as w:
+            final_df.to_excel(w, index=False, sheet_name='Data')
         st.download_button(
             "📥 Download Excel",
-            buffer.getvalue(),
+            buf.getvalue(),
             file_name=f"cleaned_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
         )
-
     with dl3:
-        pipeline_text = "\n".join(f"{s['Step']}. {s['Action']} - {s['Detail']}" for s in st.session_state.pipeline_log)
-        report = f"""DATA CLEANING REPORT
-Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-Quality Score: {st.session_state.data_quality_score:.0f}/100
-Improvement: +{st.session_state.data_quality_score - st.session_state.initial_quality_score:.0f}
-
-STEPS APPLIED:
-{pipeline_text}
-
-FINAL DATA:
-Rows: {final_df.shape[0]:,}
-Columns: {final_df.shape[1]}
-Missing Values: {final_df.isnull().sum().sum():,}
-"""
+        steps = "\n".join(
+            f"{s['Step']}. {s['Action']} - {s['Detail']}"
+            for s in st.session_state.pipeline_log
+        )
+        rpt = (f"DATA REPORT\n"
+               f"Generated: {datetime.now()}\n"
+               f"Score: {st.session_state.data_quality_score:.0f}/100\n"
+               f"\nSTEPS:\n{steps}\n"
+               f"\nFINAL: {final_df.shape[0]:,} rows × "
+               f"{final_df.shape[1]} cols")
         st.download_button(
             "📄 Download Report",
-            report,
-            file_name=f"report_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+            rpt,
+            file_name="report.txt",
             mime="text/plain",
             use_container_width=True
         )
 
-    # PDF Report
+    # PDF
     if FPDF_OK:
-        st.markdown("### 📑 Professional PDF Report")
-        
-        def _safe(text):
-            emoji_pattern = re.compile("["
-                u"\U0001F600-\U0001F64F"
-                u"\U0001F300-\U0001F5FF"
-                u"\U0001F680-\U0001F6FF"
-                u"\U0001F1E0-\U0001F1FF"
-                u"\U00002702-\U000027B0"
-                u"\U000024C2-\U0001F251"
-                "]+", flags=re.UNICODE)
-            cleaned = emoji_pattern.sub('', str(text))
+        st.markdown("### 📑 PDF Report")
+
+        def _safe(t):
+            ep = re.compile(
+                "[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF"
+                "\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF"
+                "\U00002702-\U000027B0\U000024C2-\U0001F251]+",
+                flags=re.UNICODE
+            )
+            cleaned = ep.sub('', str(t))
             try:
                 cleaned.encode('latin-1')
                 return cleaned
-            except:
-                return cleaned.encode('latin-1', 'replace').decode('latin-1')
+            except Exception:
+                return cleaned.encode('latin-1','replace').decode('latin-1')
 
         def build_pdf():
             pdf = FPDF()
             pdf.set_auto_page_break(auto=True, margin=15)
             pdf.add_page()
-            
-            # Header
             pdf.set_fill_color(102, 126, 234)
             pdf.rect(0, 0, 210, 40, 'F')
-            pdf.set_font('Helvetica', 'B', 22)
-            pdf.set_text_color(255, 255, 255)
-            pdf.set_y(12)
-            pdf.cell(0, 10, 'DATA CLEANING REPORT', align='C')
+            pdf.set_font('Helvetica','B',20)
+            pdf.set_text_color(255,255,255)
+            pdf.set_y(14)
+            pdf.cell(0,10,'DATA CLEANING REPORT',align='C')
             pdf.ln(20)
-            pdf.set_text_color(0, 0, 0)
-            pdf.set_font('Helvetica', '', 10)
-            pdf.cell(0, 8, _safe(f"Generated: {datetime.now().strftime('%d %b %Y, %H:%M')}"), align='C')
+            pdf.set_text_color(0,0,0)
+            pdf.set_font('Helvetica','',10)
+            pdf.cell(
+                0,8,
+                _safe(f"Generated: {datetime.now().strftime('%d %b %Y %H:%M')}"),
+                align='C'
+            )
             pdf.ln(14)
-
-            # Quality Score
-            pdf.set_font('Helvetica', 'B', 14)
-            pdf.cell(0, 10, '1. Quality Summary')
-            pdf.ln(10)
-            pdf.set_font('Helvetica', '', 10)
-            
-            summary = [
-                ("Initial Quality Score", f"{st.session_state.initial_quality_score:.0f}/100"),
-                ("Final Quality Score", f"{st.session_state.data_quality_score:.0f}/100"),
-                ("Improvement", f"+{st.session_state.data_quality_score - st.session_state.initial_quality_score:.0f}"),
+            pdf.set_font('Helvetica','B',13)
+            pdf.cell(0,9,'Summary'); pdf.ln(9)
+            pdf.set_font('Helvetica','',10)
+            rows = [
+                ("Initial Score",
+                 f"{st.session_state.initial_quality_score:.0f}/100"),
+                ("Final Score",
+                 f"{st.session_state.data_quality_score:.0f}/100"),
                 ("Total Rows", f"{final_df.shape[0]:,}"),
                 ("Total Columns", str(final_df.shape[1])),
-                ("Missing Values", f"{final_df.isnull().sum().sum():,}"),
+                ("Missing Values",
+                 f"{final_df.isnull().sum().sum():,}"),
+                ("Duplicate Rows",
+                 f"{final_df.duplicated().sum():,}"),
             ]
-            
-            for label, val in summary:
-                pdf.set_fill_color(243, 244, 246)
-                pdf.cell(70, 8, _safe(label), border=1, fill=True)
-                pdf.cell(60, 8, _safe(val), border=1)
-                pdf.ln(8)
-
-            # Pipeline
-            pdf.ln(6)
-            pdf.set_font('Helvetica', 'B', 14)
-            pdf.cell(0, 10, '2. Cleaning Steps')
-            pdf.ln(10)
-            pdf.set_font('Helvetica', '', 9)
+            for lbl,val in rows:
+                pdf.set_fill_color(243,244,246)
+                pdf.cell(70,8,_safe(lbl),border=1,fill=True)
+                pdf.cell(60,8,_safe(val),border=1); pdf.ln(8)
+            pdf.ln(5)
+            pdf.set_font('Helvetica','B',13)
+            pdf.cell(0,9,'Cleaning Steps'); pdf.ln(9)
+            pdf.set_font('Helvetica','',9)
             for s in st.session_state.pipeline_log:
-                action = ''.join(ch for ch in s['Action'] if ord(ch) < 256).strip()
-                line = f"Step {s['Step']} [{s['Time']}] {action}: {s['Detail']}"
-                pdf.multi_cell(0, 6, _safe(line))
-
+                a = ''.join(c for c in s['Action'] if ord(c)<256).strip()
+                pdf.multi_cell(
+                    0,6,
+                    _safe(f"Step {s['Step']} [{s['Time']}] {a}: "
+                          f"{s['Detail']}")
+                )
             return bytes(pdf.output())
 
-        if st.button("📑 Generate PDF", key="pdf_gen", type="primary"):
+        if st.button("📑 Generate PDF", type="primary", key="pdf_btn"):
             with st.spinner("Building PDF..."):
                 st.session_state['pdf_report'] = build_pdf()
-            st.success("✅ PDF ready!")
+            st.success("✅ Ready!")
 
         if st.session_state.get('pdf_report'):
             st.download_button(
@@ -1712,62 +1554,39 @@ Missing Values: {final_df.isnull().sum().sum():,}
                 mime="application/pdf",
                 use_container_width=True
             )
-    
-    # Mark download step complete
+
     if 4 not in st.session_state.completed_steps:
         st.session_state.completed_steps.append(4)
 
 else:
-    # Welcome screen for new users
+    # Welcome Screen
     st.markdown("""
     <div class='feature-card'>
-        <h2 style='margin:0;'>👋 Welcome to Smart Data Cleaner!</h2>
-        <p style='margin:10px 0 0 0; font-size: 1.1rem;'>
-            Upload a file above to get started with AI-powered data cleaning
+        <h2 style='margin:0;'>👋 Welcome!</h2>
+        <p style='margin:8px 0 0 0;'>
+            Upload a file above to start cleaning your data
         </p>
     </div>
     """, unsafe_allow_html=True)
-    
-    st.markdown("### ✨ What You Can Do:")
-    
-    feat1, feat2, feat3 = st.columns(3)
-    with feat1:
-        st.markdown("""
-        **🔍 Auto-Detect Issues**
-        - Missing values
-        - Duplicates
-        - Data type errors
-        - Outliers
-        """)
-    with feat2:
-        st.markdown("""
-        **🧹 Smart Cleaning**
-        - One-click fixes
-        - Undo/Redo support
-        - Step-by-step guide
-        - Fuzzy matching
-        """)
-    with feat3:
-        st.markdown("""
-        **📊 AI Analysis**
-        - ML predictions
-        - Anomaly detection
-        - Interactive charts
-        - PDF reports
-        """)
-    
+
+    c1,c2,c3 = st.columns(3)
+    with c1:
+        st.markdown("**🔍 Auto-Detect**\n"
+                    "- Missing values\n- Duplicates\n"
+                    "- Type errors\n- Outliers")
+    with c2:
+        st.markdown("**🧹 Smart Clean**\n"
+                    "- One-click fix\n- Undo/Redo\n"
+                    "- Step guide\n- Fuzzy match")
+    with c3:
+        st.markdown("**📊 AI Analysis**\n"
+                    "- ML predict\n- Anomaly detect\n"
+                    "- Charts\n- PDF report")
+
     st.markdown("---")
-    st.markdown("""
-    ### 🔒 Privacy First
-    - ✅ Your data **never leaves your browser**
-    - ✅ Nothing stored on servers
-    - ✅ Session-only processing
-    - ✅ Close tab = data erased
-    
-    **Supported formats:** CSV, Excel (.xlsx), JSON  
-    **Max size:** 150,000 rows per file
-    """)
+    st.markdown("🔒 **Privacy:** Data never leaves your browser | "
+                "Session-only | Close tab = data erased")
 
 # Footer
 st.markdown("---")
-st.caption("🔒 100% Private | No Data Storage | Session-Only Processing | © 2026")
+st.caption("🔒 100% Private | No Storage | © 2026")
