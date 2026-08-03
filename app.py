@@ -2026,4 +2026,4 @@ else:
 
 # Footer
 st.markdown("---")
-st.caption("🔒 100% Private | No Data Storage | Session-Only Processing | © 2025")
+st.caption("🔒 100% Private | No Data Storage | Session-Only Processing | © 2026")
